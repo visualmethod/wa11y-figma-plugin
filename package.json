@@ -1,0 +1,16 @@
+{
+  "name": "wa11y",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "plugin",
+    "widget"
+  ],
+  "scripts": {
+    "build:plugin": "npm run build --workspace=plugin",
+    "build:widget": "npm run build --workspace=widget",
+    "build": "npm run build:plugin && npm run build:widget",
+    "dev:plugin": "npm run dev --workspace=plugin",
+    "dev:widget": "npm run dev --workspace=widget"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@wa11y/widget",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "devDependencies": {
+    "@figma/widget-typings": "^1.7.1",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}

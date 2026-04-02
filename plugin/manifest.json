@@ -1,0 +1,12 @@
+{
+  "name": "Wa11y",
+  "id": "wa11y-plugin-dev",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://generativelanguage.googleapis.com"]
+  }
+}

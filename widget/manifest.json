@@ -1,6 +1,7 @@
 {
   "name": "Wa11y Checklist",
   "id": "wa11y-widget-dev",
+  "api": "1.0.0",
   "widgetApi": "1.0.0",
   "main": "dist/widget.js",
   "editorType": ["figma"],

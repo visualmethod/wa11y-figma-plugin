@@ -127,7 +127,7 @@ function SeverityBadge({ severity }: { severity: 'Critical' | 'High' }) {
       fill={bg}
       verticalAlignItems="center"
     >
-      <Text fontSize={10} fontWeight="bold" fill="#FFFFFF" lineHeight={14}>
+      <Text fontSize={10} fontWeight={700} fill="#FFFFFF" lineHeight={14}>
         {severity}
       </Text>
     </AutoLayout>
@@ -174,7 +174,6 @@ function ItemRow({
       <AutoLayout
         direction="vertical"
         spacing={5}
-        fill={undefined}
         width="fill-parent"
       >
         <Text
@@ -260,7 +259,7 @@ function SectionBlock({
         />
         <Text
           fontSize={13}
-          fontWeight="bold"
+          fontWeight={700}
           fill={allDone ? COLORS.success : COLORS.text}
           width="fill-parent"
           lineHeight={20}
@@ -324,8 +323,8 @@ function OptionalSectionToggle({
       padding={{ vertical: 7, horizontal: 12 }}
       cornerRadius={8}
       fill={enabled ? '#EFF6FF' : COLORS.bgSecondary}
-      stroke={enabled ? COLORS.primary : 'transparent'}
-      strokeWidth={1}
+      stroke={COLORS.primary}
+      strokeWidth={enabled ? 1 : 0}
       verticalAlignItems="center"
       onClick={onToggle}
     >
@@ -337,7 +336,7 @@ function OptionalSectionToggle({
       >
         {enabled && <SVG src={SVG_CHECK} width={10} height={10} x={3} y={3} />}
       </Frame>
-      <Text fontSize={12} fill={enabled ? COLORS.primary : COLORS.textMuted} fontWeight={enabled ? 'bold' : 'normal'}>
+      <Text fontSize={12} fill={enabled ? COLORS.primary : COLORS.textMuted} fontWeight={enabled ? 700 : 400}>
         {label}
       </Text>
     </AutoLayout>
@@ -456,7 +455,7 @@ function Wa11yChecklist() {
         </Frame>
 
         <AutoLayout direction="vertical" spacing={2} width="fill-parent">
-          <Text fontSize={17} fontWeight="bold" fill={COLORS.text}>
+          <Text fontSize={17} fontWeight={700} fill={COLORS.text}>
             Wa11y Accessibility Checklist
           </Text>
           {signedOff && (
@@ -476,7 +475,7 @@ function Wa11yChecklist() {
           <Text fontSize={12} fill={COLORS.textMuted} width="fill-parent">
             {checkedCount} of {totalItems} complete
           </Text>
-          <Text fontSize={12} fontWeight="bold" fill={progressPct === 100 ? COLORS.success : COLORS.primary}>
+          <Text fontSize={12} fontWeight={700} fill={progressPct === 100 ? COLORS.success : COLORS.primary}>
             {progressPct}%
           </Text>
         </AutoLayout>
@@ -517,7 +516,7 @@ function Wa11yChecklist() {
           >
             <Text
               fontSize={13}
-              fontWeight={tab === t ? 'bold' : 'normal'}
+              fontWeight={tab === t ? 700 : 400}
               fill={tab === t ? '#FFFFFF' : COLORS.textMuted}
             >
               {t === 'design' ? 'Design' : 'Content'}
@@ -546,7 +545,7 @@ function Wa11yChecklist() {
             >
               <Text
                 fontSize={11}
-                fontWeight={platform === p ? 'bold' : 'normal'}
+                fontWeight={platform === p ? 700 : 400}
                 fill={platform === p ? '#FFFFFF' : COLORS.textMuted}
               >
                 {p}
@@ -565,7 +564,7 @@ function Wa11yChecklist() {
           padding={{ top: 16, bottom: 8 }}
         >
           <Text fontSize={11} fill={COLORS.textMuted}>Optional sections:</Text>
-          <AutoLayout direction="horizontal" spacing={6} width="fill-parent" wrap>
+          <AutoLayout direction="horizontal" spacing={6} width="fill-parent">
             {optionalMeta.map((om) => (
               <OptionalSectionToggle
                 key={om.key}
@@ -622,7 +621,7 @@ function Wa11yChecklist() {
         >
           <Text fontSize={18}>✓</Text>
           <AutoLayout direction="vertical" spacing={2} width="fill-parent">
-            <Text fontSize={13} fontWeight="bold" fill="#065F46">
+            <Text fontSize={13} fontWeight={700} fill="#065F46">
               All done — sign off?
             </Text>
             <Text fontSize={11} fill="#047857">
@@ -646,7 +645,7 @@ function Wa11yChecklist() {
         >
           <SVG src={SVG_BADGE} width={24} height={24} />
           <AutoLayout direction="vertical" spacing={2} width="fill-parent">
-            <Text fontSize={13} fontWeight="bold" fill="#065F46">
+            <Text fontSize={13} fontWeight={700} fill="#065F46">
               Checklist signed off
             </Text>
             <Text fontSize={11} fill="#047857">

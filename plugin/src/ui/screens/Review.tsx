@@ -3,11 +3,11 @@ import type { Screen, AnnotationCategory, AnnotationItem, AnnotationSet } from '
 import type { AppState } from '../App';
 
 const CATEGORY_META: Record<AnnotationCategory, { label: string; color: string }> = {
-  'alt-text':    { label: 'Alt-Text',        color: '#10B981' },
-  'landmarks':   { label: 'Landmarks',        color: '#8B5CF6' },
-  'headings':    { label: 'Headings',         color: '#3B82F6' },
-  'aria':        { label: 'ARIA & Semantics', color: '#F59E0B' },
-  'input-roles': { label: 'Input Roles',      color: '#EF4444' },
+  'alt-text':    { label: 'Alt-Text',        color: '#038673' },  // brand.mid
+  'landmarks':   { label: 'Landmarks',        color: '#86418a' },  // semantic.light.purple.mid
+  'headings':    { label: 'Headings',         color: '#385ef9' },  // semantic.light.blue.mid
+  'aria':        { label: 'ARIA & Semantics', color: '#956a0d' },  // semantic.light.warning.mid
+  'input-roles': { label: 'Input Roles',      color: '#ce3528' },  // semantic.light.negative.mid
 };
 
 interface Props {
@@ -106,8 +106,8 @@ export default function Review({ state, updateState, setScreen, postMessage }: P
           style={{
             padding: '6px 10px', border: 'none', background: 'none', cursor: 'pointer',
             fontSize: 12, fontWeight: activeCategory === 'all' ? 700 : 400,
-            borderBottom: activeCategory === 'all' ? '2px solid var(--color-text)' : '2px solid transparent',
-            color: activeCategory === 'all' ? 'var(--color-text)' : 'var(--color-text-muted)',
+            borderBottom: activeCategory === 'all' ? '2px solid var(--color-primary)' : '2px solid transparent',
+            color: activeCategory === 'all' ? 'var(--color-primary)' : 'var(--color-text-muted)',
             whiteSpace: 'nowrap',
           }}
         >

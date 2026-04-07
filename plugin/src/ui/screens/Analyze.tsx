@@ -8,6 +8,7 @@ const ALL_CATEGORIES: { id: AnnotationCategory; label: string; platforms: Platfo
   { id: 'headings',    label: 'Headings',         platforms: ['Web', 'iOS', 'Android'] },
   { id: 'aria',        label: 'ARIA & Semantics', platforms: ['Web'] },
   { id: 'input-roles', label: 'Input Roles',      platforms: ['Web', 'iOS', 'Android'] },
+  { id: 'focus-order', label: 'Focus Order',      platforms: ['Web', 'iOS', 'Android'] },
 ];
 
 interface Props {
@@ -316,6 +317,7 @@ function buildPrompt(
     'headings':    'Heading hierarchy: H1–H6 and their text content',
     'aria':        'ARIA roles, states and properties for custom/interactive elements',
     'input-roles': 'Input types and roles: text, email, password, search, button, combobox, etc.',
+    'focus-order': 'Logical keyboard/focus tab order based on visual layout and layer hierarchy. Number each focusable element in the order a keyboard user should reach it (left-to-right, top-to-bottom unless layout dictates otherwise). Flag any elements that appear visually but should be skipped (aria-hidden) or that break expected reading order.',
   };
 
   const requestedCategories = categories

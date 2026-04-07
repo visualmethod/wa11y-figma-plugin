@@ -8,6 +8,7 @@ const CATEGORY_META: Record<AnnotationCategory, { label: string; color: string }
   'headings':    { label: 'Headings',         color: '#385ef9' },  // semantic.light.blue.mid
   'aria':        { label: 'ARIA & Semantics', color: '#956a0d' },  // semantic.light.warning.mid
   'input-roles': { label: 'Input Roles',      color: '#ce3528' },  // semantic.light.negative.mid
+  'focus-order': { label: 'Focus Order',      color: '#136d60' },  // semantic.light.lime.high
 };
 
 interface Props {

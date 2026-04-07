@@ -108,31 +108,27 @@ async function handleExportFrame(frameId: string) {
 }
 
 async function handleAddWidget() {
-  try {
-    const widget = await figma.importWidgetByKeyAsync(WIDGET_MANIFEST_KEY);
-    const instance = widget.createInstance({ x: figma.viewport.center.x, y: figma.viewport.center.y });
-    figma.currentPage.appendChild(instance);
-    figma.viewport.scrollAndZoomIntoView([instance]);
-    figma.ui.postMessage({ type: 'widget-added' });
-  } catch {
-    // Widget not registered yet – instruct user
-    figma.notify(
-      'Wa11y widget not found. Load the widget manifest in Figma first, then try again.',
-      { error: true, timeout: 5000 },
-    );
-  }
+  figma.notify(
+    'To add the checklist: open Resources (Shift+I) → Widgets → search "Wa11y Checklist" and drag it onto the canvas.',
+    { timeout: 8000 },
+  );
+  figma.ui.postMessage({ type: 'widget-added' });
 }
 
 async function handlePlaceAnnotations(annotations: AnnotationSet) {
-  const frame = await figma.getNodeByIdAsync(annotations.frameId) as FrameNode | null;
-  if (!frame) {
-    figma.notify('Frame not found. Please re-select it.', { error: true });
-    return;
+  try {
+    const node = await figma.getNodeByIdAsync(annotations.frameId);
+    if (!node || (node.type !== 'FRAME' && node.type !== 'COMPONENT')) {
+      figma.ui.postMessage({ type: 'export-error', message: 'Frame not found. Please re-select it.' });
+      return;
+    }
+    await placeAnnotationsOnCanvas(node as FrameNode, annotations);
+    figma.ui.postMessage({ type: 'annotations-placed', count: annotations.items.length });
+    figma.notify(`✓ ${annotations.items.length} annotations placed`, { timeout: 3000 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown placement error';
+    figma.ui.postMessage({ type: 'export-error', message: `Placement failed: ${message}` });
   }
-
-  await placeAnnotationsOnCanvas(frame, annotations);
-  figma.ui.postMessage({ type: 'annotations-placed', count: annotations.items.length });
-  figma.notify(`✓ ${annotations.items.length} annotations placed`, { timeout: 3000 });
 }
 
 // ─── Layer tree extraction ────────────────────────────────────────────────────
@@ -194,11 +190,12 @@ function solidPaintToColor(paint: SolidPaint): ColorValue {
 // ─── Annotation placement ─────────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'alt-text':    '#10B981', // green
-  'landmarks':   '#8B5CF6', // purple
-  'headings':    '#3B82F6', // blue
-  'aria':        '#F59E0B', // amber
-  'input-roles': '#EF4444', // red
+  'alt-text':    '#038673',
+  'landmarks':   '#86418a',
+  'headings':    '#385ef9',
+  'aria':        '#956a0d',
+  'input-roles': '#ce3528',
+  'focus-order': '#136d60',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -207,38 +204,26 @@ const CATEGORY_LABELS: Record<string, string> = {
   'headings':    'Heading',
   'aria':        'ARIA',
   'input-roles': 'Input Role',
+  'focus-order': 'Focus Order',
 };
 
 async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: AnnotationSet) {
   const BADGE_SIZE = 24;
-  const GUIDE_WIDTH = 260;
-  const GUIDE_PADDING = 20;
-  const GAP = 24;
+  const GUIDE_WIDTH = 280;
+  const GUIDE_PADDING = 16;
+  const GAP = 32;
 
-  // ── Group container ──────────────────────────────────────────────────────
-  const wrapper = figma.createFrame();
-  wrapper.name = `[wa11y] ${frame.name}`;
-  wrapper.fills = [];
-  wrapper.clipsContent = false;
-  wrapper.x = frame.x;
-  wrapper.y = frame.y;
+  // Load all fonts before touching any text nodes
+  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+  await figma.loadFontAsync({ family: 'Inter', style: 'Medium' });
+  await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
 
-  // ── Design copy (we reference but don't clone to keep file size small) ──
-  // Place badges as a group on top of the original frame
-  const badgeGroup = figma.createFrame();
-  badgeGroup.name = 'Annotation badges';
-  badgeGroup.fills = [];
-  badgeGroup.clipsContent = false;
-  badgeGroup.resize(frame.width, frame.height);
-  badgeGroup.x = GUIDE_WIDTH + GAP;
-  badgeGroup.y = 0;
-
-  // ── Annotation guide frame ───────────────────────────────────────────────
+  // ── Annotation guide (placed to the LEFT of the frame) ──────────────────
   const guide = figma.createFrame();
-  guide.name = 'Annotation Guide';
+  guide.name = `[wa11y] ${frame.name} — Guide`;
   guide.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
   guide.strokeWeight = 1;
-  guide.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+  guide.strokes = [{ type: 'SOLID', color: { r: 0.88, g: 0.88, b: 0.88 } }];
   guide.cornerRadius = 12;
   guide.layoutMode = 'VERTICAL';
   guide.itemSpacing = 0;
@@ -248,161 +233,159 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   guide.paddingRight = GUIDE_PADDING;
   guide.primaryAxisSizingMode = 'AUTO';
   guide.counterAxisSizingMode = 'FIXED';
-  guide.resize(GUIDE_WIDTH, 100);
-  guide.x = 0;
-  guide.y = 0;
+  guide.resize(GUIDE_WIDTH, 100); // height will grow via AUTO
+  guide.x = frame.x - GUIDE_WIDTH - GAP;
+  guide.y = frame.y;
+  figma.currentPage.appendChild(guide);
 
-  // Group items by category
+  // ── Badge overlay (same size/position as frame, placed on top) ──────────
+  const badgeGroup = figma.createFrame();
+  badgeGroup.name = `[wa11y] ${frame.name} — Badges`;
+  badgeGroup.fills = [];
+  badgeGroup.clipsContent = false;
+  badgeGroup.resize(frame.width, frame.height);
+  badgeGroup.x = frame.x;
+  badgeGroup.y = frame.y;
+  figma.currentPage.appendChild(badgeGroup);
+
+  // ── Group items by category ──────────────────────────────────────────────
   const byCategory = new Map<string, AnnotationItem[]>();
   for (const item of annotations.items) {
     if (!byCategory.has(item.category)) byCategory.set(item.category, []);
     byCategory.get(item.category)!.push(item);
   }
 
-  // Render guide sections
-  let isFirstSection = true;
+  // ── Build guide sections ─────────────────────────────────────────────────
+  let firstSection = true;
   for (const [category, items] of byCategory) {
-    if (!isFirstSection) await addDivider(guide);
-    isFirstSection = false;
+    if (!firstSection) {
+      const div = figma.createRectangle();
+      div.name = 'divider';
+      div.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 1);
+      div.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+      div.layoutAlign = 'STRETCH';
+      guide.appendChild(div);
+    }
+    firstSection = false;
 
-    // Section header
-    const headerFrame = figma.createFrame();
-    headerFrame.name = `Section: ${category}`;
-    headerFrame.fills = [];
-    headerFrame.layoutMode = 'HORIZONTAL';
-    headerFrame.itemSpacing = 8;
-    headerFrame.paddingBottom = 8;
-    headerFrame.primaryAxisSizingMode = 'FIXED';
-    headerFrame.counterAxisSizingMode = 'AUTO';
-    headerFrame.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 24);
-    headerFrame.counterAxisAlignItems = 'CENTER';
+    // Section header row
+    const headerRow = figma.createFrame();
+    headerRow.name = `cat:${category}`;
+    headerRow.fills = [];
+    headerRow.layoutMode = 'HORIZONTAL';
+    headerRow.itemSpacing = 6;
+    headerRow.paddingTop = 10;
+    headerRow.paddingBottom = 6;
+    headerRow.primaryAxisSizingMode = 'FIXED';
+    headerRow.counterAxisSizingMode = 'AUTO';
+    headerRow.counterAxisAlignItems = 'CENTER';
+    headerRow.layoutAlign = 'STRETCH';
+    headerRow.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 28);
+    guide.appendChild(headerRow);
 
     const dot = figma.createEllipse();
-    dot.resize(10, 10);
+    dot.resize(8, 8);
     dot.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
-    headerFrame.appendChild(dot);
+    dot.layoutAlign = 'INHERIT';
+    headerRow.appendChild(dot);
 
     const headerText = figma.createText();
-    await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
-    headerText.fontName = { family: 'Inter', style: 'Semi Bold' };
-    headerText.fontSize = 12;
-    headerText.characters = CATEGORY_LABELS[category] ?? category;
-    headerText.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
-    headerFrame.appendChild(headerText);
-    guide.appendChild(headerFrame);
+    headerText.fontName = { family: 'Inter', style: 'Bold' };
+    headerText.fontSize = 11;
+    headerText.characters = (CATEGORY_LABELS[category] ?? category).toUpperCase();
+    headerText.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#333') }];
+    headerText.textAutoResize = 'WIDTH_AND_HEIGHT';
+    headerRow.appendChild(headerText);
 
     // Items
     for (const item of items) {
-      await addGuideItem(guide, item, category, GUIDE_WIDTH - GUIDE_PADDING * 2);
+      const row = figma.createFrame();
+      row.name = `#${item.number}`;
+      row.fills = [];
+      row.layoutMode = 'HORIZONTAL';
+      row.itemSpacing = 8;
+      row.paddingTop = 4;
+      row.paddingBottom = 8;
+      row.primaryAxisSizingMode = 'FIXED';
+      row.counterAxisSizingMode = 'AUTO';
+      row.counterAxisAlignItems = 'MIN';
+      row.layoutAlign = 'STRETCH';
+      row.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 32);
+      guide.appendChild(row);
+
+      // Number badge
+      const numCircle = figma.createEllipse();
+      numCircle.resize(20, 20);
+      numCircle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
+      row.appendChild(numCircle);
+
+      const numText = figma.createText();
+      numText.fontName = { family: 'Inter', style: 'Bold' };
+      numText.fontSize = 10;
+      numText.characters = String(item.number);
+      numText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+      numText.textAlignHorizontal = 'CENTER';
+      numText.resize(20, 20);
+      numText.y = numCircle.y;
+      // Position text over the circle (absolute within row)
+      numText.x = 0;
+
+      const textCol = figma.createFrame();
+      textCol.fills = [];
+      textCol.layoutMode = 'VERTICAL';
+      textCol.itemSpacing = 2;
+      textCol.primaryAxisSizingMode = 'AUTO';
+      textCol.counterAxisSizingMode = 'FIXED';
+      textCol.resize(GUIDE_WIDTH - GUIDE_PADDING * 2 - 28, 20);
+      row.appendChild(textCol);
+
+      const labelNode = figma.createText();
+      labelNode.fontName = { family: 'Inter', style: 'Medium' };
+      labelNode.fontSize = 11;
+      labelNode.characters = item.label;
+      labelNode.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
+      labelNode.textAutoResize = 'WIDTH_AND_HEIGHT';
+      textCol.appendChild(labelNode);
+
+      if (item.description) {
+        const descNode = figma.createText();
+        descNode.fontName = { family: 'Inter', style: 'Regular' };
+        descNode.fontSize = 10;
+        descNode.characters = item.description;
+        descNode.fills = [{ type: 'SOLID', color: { r: 0.45, g: 0.45, b: 0.45 } }];
+        descNode.textAutoResize = 'WIDTH_AND_HEIGHT';
+        textCol.appendChild(descNode);
+      }
     }
   }
 
-  // Render badges on canvas (positioned at 0,0 — coordinates are relative hints)
-  await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+  // ── Place numbered badges at positions across the frame ──────────────────
   for (const item of annotations.items) {
-    const badge = await createBadge(item, BADGE_SIZE);
-    badgeGroup.appendChild(badge);
-    // Badges are stacked at top-left until manual repositioning by designer
-    badge.x = 8 + (item.number - 1) % 10 * (BADGE_SIZE + 4);
-    badge.y = 8 + Math.floor((item.number - 1) / 10) * (BADGE_SIZE + 4);
+    const circle = figma.createEllipse();
+    circle.name = `#${item.number} ${item.label}`;
+    circle.resize(BADGE_SIZE, BADGE_SIZE);
+    circle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[item.category] ?? '#888') }];
+    // Stack badges in a grid at the top-left — designer repositions them
+    circle.x = 8 + ((item.number - 1) % 10) * (BADGE_SIZE + 4);
+    circle.y = 8 + Math.floor((item.number - 1) / 10) * (BADGE_SIZE + 4);
+    badgeGroup.appendChild(circle);
+
+    const numText = figma.createText();
+    numText.fontName = { family: 'Inter', style: 'Bold' };
+    numText.fontSize = 10;
+    numText.characters = String(item.number);
+    numText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+    numText.resize(BADGE_SIZE, BADGE_SIZE);
+    numText.textAlignHorizontal = 'CENTER';
+    numText.textAlignVertical = 'CENTER';
+    numText.x = circle.x;
+    numText.y = circle.y;
+    badgeGroup.appendChild(numText);
   }
 
-  wrapper.appendChild(guide);
-  wrapper.appendChild(badgeGroup);
-
-  figma.currentPage.appendChild(wrapper);
-  wrapper.x = frame.x - GUIDE_WIDTH - GAP;
-  wrapper.y = frame.y;
-  wrapper.resize(GUIDE_WIDTH + GAP + frame.width, frame.height);
+  figma.viewport.scrollAndZoomIntoView([guide, badgeGroup]);
 }
 
-async function addGuideItem(
-  parent: FrameNode,
-  item: AnnotationItem,
-  category: string,
-  width: number,
-) {
-  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-  await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
-
-  const row = figma.createFrame();
-  row.name = `Item ${item.number}`;
-  row.fills = [];
-  row.layoutMode = 'HORIZONTAL';
-  row.itemSpacing = 8;
-  row.paddingTop = 6;
-  row.paddingBottom = 6;
-  row.primaryAxisSizingMode = 'FIXED';
-  row.counterAxisSizingMode = 'AUTO';
-  row.resize(width, 24);
-  row.counterAxisAlignItems = 'MIN';
-
-  // Number badge
-  const numFrame = figma.createFrame();
-  numFrame.resize(20, 20);
-  numFrame.cornerRadius = 10;
-  numFrame.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
-  numFrame.layoutMode = 'HORIZONTAL';
-  numFrame.primaryAxisAlignItems = 'CENTER';
-  numFrame.counterAxisAlignItems = 'CENTER';
-  numFrame.primaryAxisSizingMode = 'FIXED';
-  numFrame.counterAxisSizingMode = 'FIXED';
-
-  const numText = figma.createText();
-  numText.fontName = { family: 'Inter', style: 'Bold' };
-  numText.fontSize = 10;
-  numText.characters = String(item.number);
-  numText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-  numFrame.appendChild(numText);
-  row.appendChild(numFrame);
-
-  // Text content
-  const textFrame = figma.createFrame();
-  textFrame.fills = [];
-  textFrame.layoutMode = 'VERTICAL';
-  textFrame.itemSpacing = 2;
-  textFrame.primaryAxisSizingMode = 'AUTO';
-  textFrame.counterAxisSizingMode = 'FIXED';
-  textFrame.resize(width - 28, 24);
-
-  const labelText = figma.createText();
-  labelText.fontName = { family: 'Inter', style: 'Semi Bold' };
-  labelText.fontSize = 11;
-  labelText.characters = item.label;
-  labelText.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
-  labelText.textAutoResize = 'WIDTH_AND_HEIGHT';
-  textFrame.appendChild(labelText);
-
-  if (item.description) {
-    const descText = figma.createText();
-    descText.fontName = { family: 'Inter', style: 'Regular' };
-    descText.fontSize = 10;
-    descText.characters = item.description;
-    descText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
-    descText.textAutoResize = 'WIDTH_AND_HEIGHT';
-    textFrame.appendChild(descText);
-  }
-
-  row.appendChild(textFrame);
-  parent.appendChild(row);
-}
-
-async function addDivider(parent: FrameNode) {
-  const div = figma.createFrame();
-  div.name = 'Divider';
-  div.resize(220, 1);
-  div.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-  div.layoutMode = 'NONE';
-  parent.appendChild(div);
-}
-
-async function createBadge(item: AnnotationItem, size: number): Promise<EllipseNode> {
-  const circle = figma.createEllipse();
-  circle.resize(size, size);
-  circle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[item.category] ?? '#888') }];
-  circle.name = `#${item.number} ${item.label}`;
-  return circle;
-}
 
 function hexToRgb(hex: string): RGB {
   const clean = hex.replace('#', '');

@@ -7,7 +7,8 @@ export type AnnotationCategory =
   | 'landmarks'
   | 'headings'
   | 'aria'
-  | 'input-roles';
+  | 'input-roles'
+  | 'focus-order';
 
 export interface AnnotationItem {
   id: string;

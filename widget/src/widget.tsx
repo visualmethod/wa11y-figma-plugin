@@ -183,10 +183,7 @@ function ItemRow({
           lineHeight={20}
           textDecoration={checked ? 'strikethrough' : 'none'}
         >
-          {item.text}
-          {item.link && (
-            <Text fill={COLORS.primary}> ↗</Text>
-          )}
+          {item.link ? `${item.text} ↗` : item.text}
         </Text>
 
         {/* Badges row */}
@@ -509,7 +506,7 @@ function Wa11yChecklist() {
             key={t}
             padding={{ vertical: 7, horizontal: 16 }}
             cornerRadius={7}
-            fill={tab === t ? COLORS.tabActive : 'transparent'}
+            fill={tab === t ? COLORS.tabActive : COLORS.bgSecondary}
             width="fill-parent"
             horizontalAlignItems="center"
             onClick={() => setTab(t)}

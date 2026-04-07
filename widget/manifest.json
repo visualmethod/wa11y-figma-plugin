@@ -4,7 +4,6 @@
   "api": "1.0.0",
   "widgetApi": "1.0.0",
   "main": "dist/widget.js",
-  "icon": "icon.svg",
   "editorType": ["figma"],
   "containsWidget": true
 }

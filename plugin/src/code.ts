@@ -35,7 +35,7 @@ figma.ui.onmessage = async (msg: UIMessage) => {
       figma.ui.postMessage({
         type: 'settings-loaded',
         apiKey: saved?.apiKey ?? '',
-        model: saved?.model ?? 'gemini-2.0-flash',
+        model: saved?.model ?? 'claude-sonnet-4-5',
       });
       break;
     }

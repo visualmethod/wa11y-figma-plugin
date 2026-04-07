@@ -201,7 +201,7 @@ export default function Analyze({ state, updateState, setScreen, postMessage }: 
   );
 }
 
-// ─── Gemini API call ──────────────────────────────────────────────────────────
+// ─── Claude API call ──────────────────────────────────────────────────────────
 
 async function callGemini(
   apiKey: string,
@@ -214,47 +214,55 @@ async function callGemini(
 ): Promise<AnnotationSet> {
   const prompt = buildPrompt(platform, categories, layerTree, frameName);
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: {
-                  mime_type: 'image/png',
-                  data: imageBase64,
-                },
-              },
-              { text: prompt },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          response_mime_type: 'application/json',
-        },
-      }),
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
     },
-  );
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: imageBase64,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    }),
+  });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message ?? `Gemini API error ${response.status}`);
+    throw new Error(err?.error?.message ?? `Claude API error ${response.status}`);
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Empty response from Gemini');
+  const text = data?.content?.[0]?.text;
+  if (!text) throw new Error('Empty response from Claude');
 
-  let parsed: { items: GeminiAnnotationItem[] };
+  // Strip markdown code fences if present
+  const json = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+
+  let parsed: { items: AnnotationItem[] };
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(json);
   } catch {
-    throw new Error('Could not parse Gemini response as JSON');
+    throw new Error('Could not parse Claude response as JSON');
   }
 
   return {
@@ -274,7 +282,7 @@ async function callGemini(
   };
 }
 
-interface GeminiAnnotationItem {
+interface AnnotationItem {
   category: string;
   label: string;
   description: string;

@@ -7,6 +7,6 @@
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["https://generativelanguage.googleapis.com"]
+    "allowedDomains": ["https://api.anthropic.com"]
   }
 }

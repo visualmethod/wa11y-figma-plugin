@@ -3,10 +3,9 @@ import type { Screen } from '../../shared/types';
 import type { AppState } from '../App';
 
 const MODELS = [
-  { id: 'gemini-2.0-flash',       label: 'Gemini 2.0 Flash (fast, recommended)' },
-  { id: 'gemini-2.0-flash-lite',  label: 'Gemini 2.0 Flash Lite (fastest)' },
-  { id: 'gemini-1.5-pro',         label: 'Gemini 1.5 Pro (most capable)' },
-  { id: 'gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro Preview' },
+  { id: 'claude-sonnet-4-5',            label: 'Claude Sonnet 4.5 (recommended)' },
+  { id: 'claude-haiku-4-5-20251001',    label: 'Claude Haiku 4.5 (fastest)' },
+  { id: 'claude-opus-4-5',              label: 'Claude Opus 4.5 (most capable)' },
 ];
 
 interface Props {
@@ -39,12 +38,12 @@ export default function Settings({ state, setScreen, saveSettings }: Props) {
 
       <div className="screen-body">
         <div className="input-group">
-          <label className="input-label">Gemini API Key</label>
+          <label className="input-label">Claude API Key</label>
           <div style={{ position: 'relative' }}>
             <input
               className="input"
               type={showKey ? 'text' : 'password'}
-              placeholder="AIza…"
+              placeholder="sk-ant-…"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               style={{ paddingRight: 40 }}
@@ -63,14 +62,14 @@ export default function Settings({ state, setScreen, saveSettings }: Props) {
           <p style={{ fontSize: 11 }}>
             Get your key from{' '}
             <a
-              href="https://aistudio.google.com/app/apikey"
+              href="https://console.anthropic.com/settings/keys"
               target="_blank"
               rel="noreferrer"
               style={{ color: 'var(--color-primary)' }}
             >
-              Google AI Studio
+              Anthropic Console
             </a>
-            . Stored locally in this browser only.
+            . Stored in Figma client storage on your device only.
           </p>
         </div>
 

@@ -41,6 +41,7 @@ export type PluginMessage =
   | { type: 'selection-change'; frameId: string | null; frameName: string | null }
   | { type: 'settings-loaded'; apiKey: string; model: string }
   | { type: 'export-result'; imageData: string; layerTree: LayerNode[] }
+  | { type: 'export-error'; message: string }
   | { type: 'widget-added' }
   | { type: 'annotations-placed'; count: number };
 

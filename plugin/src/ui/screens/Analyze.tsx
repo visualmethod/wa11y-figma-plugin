@@ -51,16 +51,24 @@ export default function Analyze({ state, updateState, setScreen, postMessage }: 
   const handleGenerate = async () => {
     if (!state.selectedFrameId || !state.selectedFrameName) return;
     setStatus('exporting');
+    setErrorMsg('');
+    console.log('[wa11y] Requesting frame export:', state.selectedFrameId);
 
-    // Request frame export from main thread
     postMessage({ type: 'export-frame', frameId: state.selectedFrameId });
 
-    // Listen for the export result
     const onMessage = async (event: MessageEvent) => {
       const msg = event.data?.pluginMessage;
-      if (msg?.type !== 'export-result') return;
+      if (!msg || (msg.type !== 'export-result' && msg.type !== 'export-error')) return;
       window.removeEventListener('message', onMessage);
 
+      if (msg.type === 'export-error') {
+        console.error('[wa11y] Export failed:', msg.message);
+        setErrorMsg(`Export failed: ${msg.message}`);
+        setStatus('error');
+        return;
+      }
+
+      console.log('[wa11y] Export OK, sending to Claude…');
       setStatus('analyzing');
       try {
         const annotations = await callGemini(
@@ -72,10 +80,13 @@ export default function Analyze({ state, updateState, setScreen, postMessage }: 
           state.categories,
           state.selectedFrameName!,
         );
+        console.log('[wa11y] Claude response OK, items:', annotations.items.length);
         updateState({ pendingAnnotations: annotations });
         setScreen('review');
       } catch (err: unknown) {
-        setErrorMsg(err instanceof Error ? err.message : 'Unknown error from Gemini API');
+        const message = err instanceof Error ? err.message : 'Unknown error from Claude API';
+        console.error('[wa11y] Claude API error:', message);
+        setErrorMsg(message);
         setStatus('error');
       }
     };
@@ -248,10 +259,12 @@ async function callGemini(
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
+    console.error('[wa11y] Claude HTTP error:', response.status, err);
     throw new Error(err?.error?.message ?? `Claude API error ${response.status}`);
   }
 
   const data = await response.json();
+  console.log('[wa11y] Claude raw response:', JSON.stringify(data).slice(0, 300));
   const text = data?.content?.[0]?.text;
   if (!text) throw new Error('Empty response from Claude');
 

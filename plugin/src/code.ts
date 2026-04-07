@@ -81,25 +81,30 @@ function sendSelectionState() {
 }
 
 async function handleExportFrame(frameId: string) {
-  const node = figma.getNodeById(frameId);
-  if (!node || (node.type !== 'FRAME' && node.type !== 'COMPONENT')) {
-    figma.notify('Frame not found. Please re-select it.', { error: true });
-    return;
+  try {
+    const node = await figma.getNodeByIdAsync(frameId);
+    if (!node || (node.type !== 'FRAME' && node.type !== 'COMPONENT')) {
+      figma.ui.postMessage({ type: 'export-error', message: 'Frame not found. Re-select it and try again.' });
+      return;
+    }
+
+    const imageBytes = await (node as FrameNode).exportAsync({
+      format: 'PNG',
+      constraint: { type: 'SCALE', value: 2 },
+    });
+
+    const base64 = figma.base64Encode(imageBytes);
+    const layerTree = extractLayerTree(node as FrameNode);
+
+    figma.ui.postMessage({
+      type: 'export-result',
+      imageData: base64,
+      layerTree,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown export error';
+    figma.ui.postMessage({ type: 'export-error', message });
   }
-
-  const imageBytes = await (node as FrameNode).exportAsync({
-    format: 'PNG',
-    constraint: { type: 'SCALE', value: 2 },
-  });
-
-  const base64 = figma.base64Encode(imageBytes);
-  const layerTree = extractLayerTree(node as FrameNode);
-
-  figma.ui.postMessage({
-    type: 'export-result',
-    imageData: base64,
-    layerTree,
-  });
 }
 
 async function handleAddWidget() {
@@ -119,7 +124,7 @@ async function handleAddWidget() {
 }
 
 async function handlePlaceAnnotations(annotations: AnnotationSet) {
-  const frame = figma.getNodeById(annotations.frameId) as FrameNode | null;
+  const frame = await figma.getNodeByIdAsync(annotations.frameId) as FrameNode | null;
   if (!frame) {
     figma.notify('Frame not found. Please re-select it.', { error: true });
     return;

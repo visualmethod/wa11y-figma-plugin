@@ -28,6 +28,25 @@ figma.ui.onmessage = async (msg: UIMessage) => {
       sendSelectionState();
       break;
 
+    case 'load-settings': {
+      const saved = await figma.clientStorage.getAsync('wa11y_settings') as
+        | { apiKey: string; model: string }
+        | undefined;
+      figma.ui.postMessage({
+        type: 'settings-loaded',
+        apiKey: saved?.apiKey ?? '',
+        model: saved?.model ?? 'gemini-2.0-flash',
+      });
+      break;
+    }
+
+    case 'save-settings':
+      await figma.clientStorage.setAsync('wa11y_settings', {
+        apiKey: msg.apiKey,
+        model: msg.model,
+      });
+      break;
+
     case 'export-frame':
       await handleExportFrame(msg.frameId);
       break;

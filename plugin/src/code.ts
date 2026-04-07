@@ -94,7 +94,7 @@ async function handleExportFrame(frameId: string) {
     });
 
     const base64 = figma.base64Encode(imageBytes);
-    const layerTree = extractLayerTree(node as FrameNode);
+    const layerTree = await extractLayerTree(node as FrameNode);
 
     figma.ui.postMessage({
       type: 'export-result',
@@ -137,7 +137,7 @@ async function handlePlaceAnnotations(annotations: AnnotationSet) {
 
 // ─── Layer tree extraction ────────────────────────────────────────────────────
 
-function extractLayerTree(node: SceneNode, depth = 0): LayerNode {
+async function extractLayerTree(node: SceneNode, depth = 0): Promise<LayerNode> {
   const base: LayerNode = {
     id: node.id,
     name: node.name,
@@ -162,16 +162,19 @@ function extractLayerTree(node: SceneNode, depth = 0): LayerNode {
     base.isImage = (node.fills as readonly Paint[]).some((f) => f.type === 'IMAGE');
   }
 
-  // Component instance name
+  // Component instance name — must use async API with dynamic-page access
   if (node.type === 'INSTANCE') {
-    base.componentName = node.mainComponent?.name ?? undefined;
+    const mainComp = await node.getMainComponentAsync();
+    base.componentName = mainComp?.name ?? undefined;
     base.isInteractive =
-      node.mainComponent?.name.toLowerCase().match(/button|link|input|toggle|checkbox|radio|select|tab|menu/) != null;
+      mainComp?.name.toLowerCase().match(/button|link|input|toggle|checkbox|radio|select|tab|menu/) != null;
   }
 
   // Recurse up to depth 5 to avoid huge payloads on complex frames
   if (depth < 5 && 'children' in node) {
-    base.children = (node as FrameNode).children.map((c) => extractLayerTree(c, depth + 1));
+    base.children = await Promise.all(
+      (node as FrameNode).children.map((c) => extractLayerTree(c, depth + 1))
+    );
   }
 
   return base;

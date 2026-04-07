@@ -92,8 +92,8 @@ export default function Settings({ state, setScreen, saveSettings }: Props) {
         <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
           <h3 style={{ marginBottom: 6 }}>Privacy note</h3>
           <p style={{ fontSize: 12 }}>
-            Your API key is stored in browser localStorage — it never leaves your device except
-            to call Google's Gemini API directly. No data is sent to Wa11y servers.
+            Your API key is stored in Figma's local client storage — it never leaves your device
+            except to call Google's Gemini API directly. No data is sent to Wa11y servers.
           </p>
         </div>
       </div>

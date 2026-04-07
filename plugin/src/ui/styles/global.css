@@ -2,21 +2,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --color-bg:          #FFFFFF;
-  --color-bg-secondary:#F5F5F5;
-  --color-bg-hover:    #F0F0F0;
-  --color-border:      #E5E7EB;
-  --color-text:        #1C1C1E;
-  --color-text-muted:  #6B7280;
-  --color-primary:     #3B82F6;
-  --color-primary-dark:#2563EB;
-  --color-critical:    #EF4444;
-  --color-high:        #F59E0B;
-  --color-success:     #10B981;
-  --color-purple:      #8B5CF6;
-  --radius-sm:         6px;
-  --radius-md:         10px;
-  --radius-lg:         14px;
+  /* Design system — semantic.light */
+  --color-bg:           #FFFFFF;
+  --color-bg-secondary: #f0f3f5;   /* background.low  */
+  --color-bg-hover:     #d1dbe0;   /* background.mid  */
+  --color-border:       #d1dbe0;   /* background.mid  */
+  --color-text:         #29363d;   /* content.high    */
+  --color-text-muted:   #5c7a89;   /* content.mid     */
+  --color-text-low:     #a3b8c1;   /* content.low     */
+  --color-primary:      #038673;   /* brand.mid       */
+  --color-primary-dark: #015354;   /* brand.high      */
+  --color-primary-light:#3dd2ba;   /* brand.low       */
+  --color-primary-bg:   #ecfdf7;   /* mint.50         */
+  --color-critical:     #ce3528;   /* negative.mid    */
+  --color-critical-bg:  #ffe2e2;
+  --color-high:         #956a0d;   /* warning.mid     */
+  --color-high-bg:      #fef3c6;
+  --color-success:      #228618;   /* positive.mid    */
+  --color-success-bg:   #ecfdf7;
+  --radius-sm:          6px;
+  --radius-md:          10px;
+  --radius-lg:          14px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -83,8 +89,8 @@ p  { font-size: 13px; color: var(--color-text-muted); }
   text-decoration: none;
 }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-primary  { background: var(--color-text); color: #fff; width: 100%; }
-.btn-primary:hover:not(:disabled) { background: #333; }
+.btn-primary  { background: var(--color-primary); color: #fff; width: 100%; }
+.btn-primary:hover:not(:disabled) { background: var(--color-primary-dark); }
 .btn-secondary { background: var(--color-bg-secondary); color: var(--color-text); border: 1px solid var(--color-border); }
 .btn-secondary:hover:not(:disabled) { background: var(--color-bg-hover); }
 .btn-ghost { background: transparent; color: var(--color-text-muted); padding: 6px 10px; }
@@ -165,7 +171,7 @@ select.input { appearance: none; cursor: pointer; }
   transition: all 0.15s;
 }
 .segment-btn.active {
-  background: var(--color-text);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -230,14 +236,12 @@ select.input { appearance: none; cursor: pointer; }
 .logo-icon {
   width: 28px;
   height: 28px;
-  background: var(--color-text);
+  background: #5ee9b5;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 900;
+  overflow: hidden;
 }
 
 /* ── Misc ─────────────────────────────────────────────────────────────────── */

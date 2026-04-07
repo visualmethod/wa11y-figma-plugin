@@ -29,24 +29,47 @@ type FilterPlatform = 'All' | 'Web' | 'iOS' | 'Android';
 
 const W = 560;
 const COLORS = {
+  // Brand
+  primary:       '#038673',  // semantic.light.brand.mid
+  primaryDark:   '#015354',  // semantic.light.brand.high
+  primaryLight:  '#3dd2ba',  // semantic.light.brand.low
+  primaryBg:     '#ecfdf7',  // primitive.mint.50
+  // Backgrounds
   bg:            '#FFFFFF',
-  bgSecondary:   '#F5F5F5',
-  bgHover:       '#EFEFEF',
-  border:        '#E5E7EB',
-  text:          '#1C1C1E',
-  textMuted:     '#6B7280',
-  textLight:     '#9CA3AF',
-  primary:       '#3B82F6',
-  critical:      '#EF4444',
-  criticalLight: '#FEE2E2',
-  high:          '#F59E0B',
-  highLight:     '#FEF3C7',
-  success:       '#10B981',
-  successLight:  '#ECFDF5',
-  tabActive:     '#1C1C1E',
-  tabInactive:   '#F3F4F6',
-  sectionToggle: '#F3F4F6',
+  bgSecondary:   '#f0f3f5',  // semantic.light.background.low
+  bgHover:       '#d1dbe0',  // semantic.light.background.mid
+  border:        '#d1dbe0',  // semantic.light.background.mid
+  // Text
+  text:          '#29363d',  // semantic.light.content.high
+  textMuted:     '#5c7a89',  // semantic.light.content.mid
+  textLight:     '#a3b8c1',  // semantic.light.content.low
+  // Status
+  critical:      '#ce3528',  // semantic.light.negative.mid
+  criticalLight: '#ffe2e2',
+  high:          '#956a0d',  // semantic.light.warning.mid
+  highLight:     '#fef3c6',
+  success:       '#228618',  // semantic.light.positive.mid
+  successLight:  '#ecfdf7',  // primitive.mint.50
+  successBorder: '#9cf3d3',  // primitive.mint.200
+  // Tabs
+  tabActive:     '#29363d',  // semantic.light.content.high
+  tabInactive:   '#f0f3f5',
 };
+
+// ─── Logo ─────────────────────────────────────────────────────────────────────
+// Cloud-ring mark: mint background, dark brand blob with hollow centre
+const SVG_LOGO = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="8" fill="#5ee9b5"/>
+  <circle cx="10.5" cy="11" r="6" fill="#015354"/>
+  <circle cx="16" cy="8.5" r="6" fill="#015354"/>
+  <circle cx="21.5" cy="11" r="6" fill="#015354"/>
+  <circle cx="8"    cy="17" r="5.5" fill="#015354"/>
+  <circle cx="24"   cy="17" r="5.5" fill="#015354"/>
+  <circle cx="10.5" cy="22.5" r="5.5" fill="#015354"/>
+  <circle cx="21.5" cy="22.5" r="5.5" fill="#015354"/>
+  <circle cx="16"   cy="16.5" r="9"   fill="#015354"/>
+  <circle cx="16"   cy="16.5" r="5"   fill="#5ee9b5"/>
+</svg>`;
 
 // ─── SVG assets ──────────────────────────────────────────────────────────────
 
@@ -441,15 +464,8 @@ function Wa11yChecklist() {
         verticalAlignItems="center"
         padding={{ bottom: 16 }}
       >
-        {/* Icon */}
-        <Frame
-          width={32}
-          height={32}
-          cornerRadius={8}
-          fill={COLORS.text}
-        >
-          <Text fontSize={16} fill="#FFFFFF" x={7} y={6}>♿</Text>
-        </Frame>
+        {/* Logo */}
+        <SVG src={SVG_LOGO} width={32} height={32} />
 
         <AutoLayout direction="vertical" spacing={2} width="fill-parent">
           <Text fontSize={17} fontWeight={700} fill={COLORS.text}>
@@ -458,7 +474,7 @@ function Wa11yChecklist() {
           {signedOff && (
             <AutoLayout direction="horizontal" spacing={4} verticalAlignItems="center">
               <SVG src={SVG_BADGE} width={18} height={18} />
-              <Text fontSize={11} fill={COLORS.success}>
+              <Text fontSize={11} fill={COLORS.primary}>
                 Signed off by {signedOffBy}
               </Text>
             </AutoLayout>
@@ -617,7 +633,7 @@ function Wa11yChecklist() {
           padding={14}
           cornerRadius={10}
           fill={COLORS.successLight}
-          stroke="#A7F3D0"
+          stroke={COLORS.successBorder}
           strokeWidth={1}
           width="fill-parent"
           verticalAlignItems="center"
@@ -628,10 +644,10 @@ function Wa11yChecklist() {
         >
           <Text fontSize={18}>✓</Text>
           <AutoLayout direction="vertical" spacing={2} width="fill-parent">
-            <Text fontSize={13} fontWeight={700} fill="#065F46">
+            <Text fontSize={13} fontWeight={700} fill={COLORS.primaryDark}>
               All done — sign off?
             </Text>
-            <Text fontSize={11} fill="#047857">
+            <Text fontSize={11} fill={COLORS.primary}>
               Tap to mark this checklist as reviewed
             </Text>
           </AutoLayout>
@@ -645,17 +661,17 @@ function Wa11yChecklist() {
           padding={14}
           cornerRadius={10}
           fill={COLORS.successLight}
-          stroke="#A7F3D0"
+          stroke={COLORS.successBorder}
           strokeWidth={1}
           width="fill-parent"
           verticalAlignItems="center"
         >
           <SVG src={SVG_BADGE} width={24} height={24} />
           <AutoLayout direction="vertical" spacing={2} width="fill-parent">
-            <Text fontSize={13} fontWeight={700} fill="#065F46">
+            <Text fontSize={13} fontWeight={700} fill={COLORS.primaryDark}>
               Checklist signed off
             </Text>
-            <Text fontSize={11} fill="#047857">
+            <Text fontSize={11} fill={COLORS.primary}>
               Reviewed by {signedOffBy}
             </Text>
           </AutoLayout>

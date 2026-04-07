@@ -145,7 +145,7 @@ export default function Analyze({ state, updateState, setScreen, postMessage }: 
                     padding: '9px 12px',
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                    background: active ? '#EFF6FF' : 'var(--color-bg)',
+                    background: active ? 'var(--color-primary-bg)' : 'var(--color-bg)',
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                   }}
@@ -166,9 +166,9 @@ export default function Analyze({ state, updateState, setScreen, postMessage }: 
         {status === 'error' && (
           <div
             style={{
-              background: '#FEF2F2', border: '1px solid #FECACA',
+              background: 'var(--color-critical-bg)', border: '1px solid var(--color-critical)',
               borderRadius: 'var(--radius-md)', padding: '10px 14px',
-              fontSize: 12, color: '#991B1B',
+              fontSize: 12, color: 'var(--color-critical)',
             }}
           >
             <strong>Error: </strong>{errorMsg}

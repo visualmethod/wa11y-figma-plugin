@@ -21,7 +21,18 @@ export default function Done({ state, postMessage, setScreen }: Props) {
     <div className="screen">
       <header className="screen-header">
         <div className="logo">
-          <div className="logo-icon">♿</div>
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 8, flexShrink: 0 }}>
+            <rect width="32" height="32" rx="8" fill="#5ee9b5"/>
+            <circle cx="10.5" cy="11"   r="6"   fill="#015354"/>
+            <circle cx="16"   cy="8.5"  r="6"   fill="#015354"/>
+            <circle cx="21.5" cy="11"   r="6"   fill="#015354"/>
+            <circle cx="8"    cy="17"   r="5.5" fill="#015354"/>
+            <circle cx="24"   cy="17"   r="5.5" fill="#015354"/>
+            <circle cx="10.5" cy="22.5" r="5.5" fill="#015354"/>
+            <circle cx="21.5" cy="22.5" r="5.5" fill="#015354"/>
+            <circle cx="16"   cy="16.5" r="9"   fill="#015354"/>
+            <circle cx="16"   cy="16.5" r="5"   fill="#5ee9b5"/>
+          </svg>
           Wa11y
         </div>
       </header>
@@ -30,7 +41,7 @@ export default function Done({ state, postMessage, setScreen }: Props) {
         <div
           style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: '#ECFDF5',
+            background: 'var(--color-primary-bg)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 28,
           }}
@@ -61,9 +72,9 @@ export default function Done({ state, postMessage, setScreen }: Props) {
         ) : (
           <div
             style={{
-              background: '#ECFDF5', border: '1px solid #A7F3D0',
+              background: 'var(--color-primary-bg)', border: '1px solid var(--color-primary-light)',
               borderRadius: 'var(--radius-md)', padding: '12px 16px',
-              width: '100%', textAlign: 'center', fontSize: 13, color: '#065F46',
+              width: '100%', textAlign: 'center', fontSize: 13, color: 'var(--color-primary-dark)',
             }}
           >
             ✓ Checklist added to canvas

@@ -562,7 +562,17 @@ function Wa11yChecklist() {
         >
           <Text fontSize={11} fill={COLORS.textMuted}>Optional sections:</Text>
           <AutoLayout direction="horizontal" spacing={6} width="fill-parent">
-            {optionalMeta.map((om) => (
+            {optionalMeta.slice(0, 2).map((om) => (
+              <OptionalSectionToggle
+                key={om.key}
+                label={om.label}
+                enabled={!!optionalSections[om.key]}
+                onToggle={() => toggleOptional(om.key)}
+              />
+            ))}
+          </AutoLayout>
+          <AutoLayout direction="horizontal" spacing={6} width="fill-parent">
+            {optionalMeta.slice(2).map((om) => (
               <OptionalSectionToggle
                 key={om.key}
                 label={om.label}

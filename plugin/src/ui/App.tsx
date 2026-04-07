@@ -29,17 +29,9 @@ export default function App() {
     pendingAnnotations: null,
   });
 
-  // Load persisted settings on mount
+  // Load persisted settings from figma.clientStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('wa11y_settings');
-    if (saved) {
-      try {
-        const { apiKey, model } = JSON.parse(saved);
-        setState((s) => ({ ...s, apiKey: apiKey ?? '', model: model ?? 'gemini-2.0-flash' }));
-      } catch {
-        // ignore corrupt storage
-      }
-    }
+    postMessage({ type: 'load-settings' });
   }, []);
 
   // Listen for messages from the plugin main thread
@@ -49,6 +41,13 @@ export default function App() {
       if (!msg) return;
 
       switch (msg.type) {
+        case 'settings-loaded':
+          setState((s) => ({
+            ...s,
+            apiKey: msg.apiKey ?? '',
+            model: msg.model ?? 'gemini-2.0-flash',
+          }));
+          break;
         case 'selection-change':
           setState((s) => ({
             ...s,
@@ -68,7 +67,7 @@ export default function App() {
   const updateState = (patch: Partial<AppState>) => setState((s) => ({ ...s, ...patch }));
 
   const saveSettings = (apiKey: string, model: string) => {
-    localStorage.setItem('wa11y_settings', JSON.stringify({ apiKey, model }));
+    postMessage({ type: 'save-settings', apiKey, model });
     updateState({ apiKey, model });
   };
 

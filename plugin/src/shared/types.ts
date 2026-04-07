@@ -28,18 +28,21 @@ export interface AnnotationSet {
 }
 
 // Messages between plugin main thread and UI
-export type PluginMessage =
-  | { type: 'selection-change'; frameId: string | null; frameName: string | null }
-  | { type: 'export-result'; imageData: string; layerTree: LayerNode[] }
-  | { type: 'widget-added' }
-  | { type: 'annotations-placed'; count: number };
-
 export type UIMessage =
   | { type: 'get-selection' }
+  | { type: 'load-settings' }
+  | { type: 'save-settings'; apiKey: string; model: string }
   | { type: 'export-frame'; frameId: string }
   | { type: 'add-widget' }
   | { type: 'place-annotations'; annotations: AnnotationSet }
   | { type: 'resize'; width: number; height: number };
+
+export type PluginMessage =
+  | { type: 'selection-change'; frameId: string | null; frameName: string | null }
+  | { type: 'settings-loaded'; apiKey: string; model: string }
+  | { type: 'export-result'; imageData: string; layerTree: LayerNode[] }
+  | { type: 'widget-added' }
+  | { type: 'annotations-placed'; count: number };
 
 // Simplified layer tree sent to AI
 export interface LayerNode {

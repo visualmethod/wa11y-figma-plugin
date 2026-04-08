@@ -218,6 +218,10 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   await figma.loadFontAsync({ family: 'Inter', style: 'Medium' });
   await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
 
+  // Absolute canvas coords — frame.x/y are relative to parent, not the page
+  const frameBounds = frame.absoluteBoundingBox;
+  if (!frameBounds) return;
+
   // ── Annotation guide (placed to the LEFT of the frame) ──────────────────
   const guide = figma.createFrame();
   guide.name = `[wa11y] ${frame.name} — Guide`;
@@ -234,8 +238,8 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   guide.primaryAxisSizingMode = 'AUTO';
   guide.counterAxisSizingMode = 'FIXED';
   guide.resize(GUIDE_WIDTH, 100); // height will grow via AUTO
-  guide.x = frame.x - GUIDE_WIDTH - GAP;
-  guide.y = frame.y;
+  guide.x = frameBounds.x - GUIDE_WIDTH - GAP;
+  guide.y = frameBounds.y;
   figma.currentPage.appendChild(guide);
 
   // ── Badge overlay (same size/position as frame, placed on top) ──────────
@@ -244,8 +248,8 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   badgeGroup.fills = [];
   badgeGroup.clipsContent = false;
   badgeGroup.resize(frame.width, frame.height);
-  badgeGroup.x = frame.x;
-  badgeGroup.y = frame.y;
+  badgeGroup.x = frameBounds.x;
+  badgeGroup.y = frameBounds.y;
   figma.currentPage.appendChild(badgeGroup);
 
   // ── Group items by category ──────────────────────────────────────────────
@@ -313,12 +317,27 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
       row.counterAxisSizingMode = 'AUTO';   // height follows content — no resize() call
       guide.appendChild(row);
 
-      // Coloured number circle
-      const numCircle = figma.createEllipse();
-      numCircle.resize(20, 20);
-      numCircle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
-      numCircle.layoutAlign = 'CENTER';
-      row.appendChild(numCircle);
+      // Numbered badge (coloured circle with annotation number inside)
+      const numBadge = figma.createFrame();
+      numBadge.name = `num`;
+      numBadge.resize(20, 20);
+      numBadge.cornerRadius = 10;
+      numBadge.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
+      numBadge.layoutMode = 'VERTICAL';
+      numBadge.primaryAxisAlignItems = 'CENTER';
+      numBadge.counterAxisAlignItems = 'CENTER';
+      numBadge.primaryAxisSizingMode = 'FIXED';
+      numBadge.counterAxisSizingMode = 'FIXED';
+      numBadge.layoutAlign = 'CENTER';
+      row.appendChild(numBadge);
+
+      const numBadgeText = figma.createText();
+      numBadgeText.fontName = { family: 'Inter', style: 'Bold' };
+      numBadgeText.fontSize = 9;
+      numBadgeText.characters = String(item.number);
+      numBadgeText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+      numBadgeText.textAutoResize = 'WIDTH_AND_HEIGHT';
+      numBadge.appendChild(numBadgeText);
 
       // Text column: vertical, auto height, fills remaining width
       const textCol = figma.createFrame();
@@ -354,7 +373,6 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   }
 
   // ── Place numbered badges on top of their annotated elements ────────────
-  const frameBounds = frame.absoluteBoundingBox;
   let fallbackCol = 0;
   let fallbackRow = 0;
 
@@ -363,7 +381,7 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     let bx: number | null = null;
     let by: number | null = null;
 
-    if (item.nodeId && frameBounds) {
+    if (item.nodeId) {
       const targetNode = await figma.getNodeByIdAsync(item.nodeId) as SceneNode | null;
       const bounds = targetNode && 'absoluteBoundingBox' in targetNode
         ? targetNode.absoluteBoundingBox

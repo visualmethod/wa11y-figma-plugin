@@ -291,6 +291,7 @@ async function callGemini(
       category: item.category as AnnotationCategory,
       label: item.label,
       description: item.description,
+      nodeId: item.nodeId,
       ariaRole: item.ariaRole,
       ariaNote: item.ariaNote,
     })),
@@ -301,6 +302,7 @@ interface AnnotationItem {
   category: string;
   label: string;
   description: string;
+  nodeId?: string;
   ariaRole?: string;
   ariaNote?: string;
 }
@@ -341,15 +343,16 @@ Rules:
 - For alt-text: distinguish between "Written" (has meaningful content) and "Decorative" (aria-hidden="true")
 - For ARIA: only annotate elements that genuinely need explicit ARIA (don't annotate native semantic elements)
 - Number annotations sequentially across all categories, starting from 1
-- Use layer names to identify elements where possible
+- For EVERY item, set "nodeId" to the exact "id" value of the corresponding node from the layer tree JSON above. If the annotation covers a container or group, use its id. If no single node matches, omit the field.
 
 Return ONLY valid JSON in this exact schema — no markdown, no explanation:
 {
   "items": [
     {
-      "category": "alt-text" | "landmarks" | "headings" | "aria" | "input-roles",
+      "category": "alt-text" | "landmarks" | "headings" | "aria" | "input-roles" | "focus-order",
       "label": "Short element label (e.g. 'Search bar', 'Navigation', 'H1 - Page title')",
       "description": "The actual annotation value (e.g. 'Search products', 'role=\\"navigation\\" aria-label=\\"Main navigation\\"')",
+      "nodeId": "the id field of the matching node from the layer tree, e.g. '123:456'",
       "ariaRole": "optional ARIA role string",
       "ariaNote": "optional additional note for developers"
     }

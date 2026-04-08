@@ -16,6 +16,7 @@ export interface AnnotationItem {
   category: AnnotationCategory;
   label: string;
   description: string;
+  nodeId?: string;
   ariaRole?: string;
   ariaNote?: string;
 }

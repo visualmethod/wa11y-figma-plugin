@@ -99,7 +99,7 @@ async function handleExportFrame(frameId: string) {
     figma.ui.postMessage({
       type: 'export-result',
       imageData: base64,
-      layerTree,
+      layerTree: [layerTree],
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown export error';
@@ -299,6 +299,7 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
 
     // Items
     for (const item of items) {
+      // Row: fill parent width, auto height so descriptions never truncate
       const row = figma.createFrame();
       row.name = `#${item.number}`;
       row.fills = [];
@@ -306,34 +307,25 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
       row.itemSpacing = 8;
       row.paddingTop = 4;
       row.paddingBottom = 8;
-      row.primaryAxisSizingMode = 'FIXED';
-      row.counterAxisSizingMode = 'AUTO';
       row.counterAxisAlignItems = 'MIN';
-      row.layoutAlign = 'STRETCH';
-      row.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 32);
+      row.layoutAlign = 'STRETCH';          // fill guide width
+      row.primaryAxisSizingMode = 'FIXED';  // width from STRETCH
+      row.counterAxisSizingMode = 'AUTO';   // height follows content — no resize() call
       guide.appendChild(row);
 
-      // Number badge
+      // Coloured number circle
       const numCircle = figma.createEllipse();
       numCircle.resize(20, 20);
       numCircle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
+      numCircle.layoutAlign = 'CENTER';
       row.appendChild(numCircle);
 
-      const numText = figma.createText();
-      numText.fontName = { family: 'Inter', style: 'Bold' };
-      numText.fontSize = 10;
-      numText.characters = String(item.number);
-      numText.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-      numText.textAlignHorizontal = 'CENTER';
-      numText.resize(20, 20);
-      numText.y = numCircle.y;
-      // Position text over the circle (absolute within row)
-      numText.x = 0;
-
+      // Text column: vertical, auto height, fills remaining width
       const textCol = figma.createFrame();
       textCol.fills = [];
       textCol.layoutMode = 'VERTICAL';
-      textCol.itemSpacing = 2;
+      textCol.itemSpacing = 3;
+      textCol.layoutAlign = 'STRETCH';
       textCol.primaryAxisSizingMode = 'AUTO';
       textCol.counterAxisSizingMode = 'FIXED';
       textCol.resize(GUIDE_WIDTH - GUIDE_PADDING * 2 - 28, 20);
@@ -344,7 +336,8 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
       labelNode.fontSize = 11;
       labelNode.characters = item.label;
       labelNode.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
-      labelNode.textAutoResize = 'WIDTH_AND_HEIGHT';
+      labelNode.layoutAlign = 'STRETCH';
+      labelNode.textAutoResize = 'HEIGHT';
       textCol.appendChild(labelNode);
 
       if (item.description) {
@@ -353,21 +346,49 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
         descNode.fontSize = 10;
         descNode.characters = item.description;
         descNode.fills = [{ type: 'SOLID', color: { r: 0.45, g: 0.45, b: 0.45 } }];
-        descNode.textAutoResize = 'WIDTH_AND_HEIGHT';
+        descNode.layoutAlign = 'STRETCH';
+        descNode.textAutoResize = 'HEIGHT';
         textCol.appendChild(descNode);
       }
     }
   }
 
-  // ── Place numbered badges at positions across the frame ──────────────────
+  // ── Place numbered badges on top of their annotated elements ────────────
+  const frameBounds = frame.absoluteBoundingBox;
+  let fallbackCol = 0;
+  let fallbackRow = 0;
+
   for (const item of annotations.items) {
+    // Try to position badge on the actual element
+    let bx: number | null = null;
+    let by: number | null = null;
+
+    if (item.nodeId && frameBounds) {
+      const targetNode = await figma.getNodeByIdAsync(item.nodeId) as SceneNode | null;
+      const bounds = targetNode && 'absoluteBoundingBox' in targetNode
+        ? targetNode.absoluteBoundingBox
+        : null;
+      if (bounds) {
+        // Top-left corner of element, offset so badge is centred on the corner
+        bx = bounds.x - frameBounds.x - BADGE_SIZE / 2;
+        by = bounds.y - frameBounds.y - BADGE_SIZE / 2;
+      }
+    }
+
+    // Fallback: grid at top-left of frame
+    if (bx === null || by === null) {
+      bx = 8 + fallbackCol * (BADGE_SIZE + 4);
+      by = 8 + fallbackRow * (BADGE_SIZE + 4);
+      fallbackCol++;
+      if (fallbackCol >= 10) { fallbackCol = 0; fallbackRow++; }
+    }
+
     const circle = figma.createEllipse();
     circle.name = `#${item.number} ${item.label}`;
     circle.resize(BADGE_SIZE, BADGE_SIZE);
     circle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[item.category] ?? '#888') }];
-    // Stack badges in a grid at the top-left — designer repositions them
-    circle.x = 8 + ((item.number - 1) % 10) * (BADGE_SIZE + 4);
-    circle.y = 8 + Math.floor((item.number - 1) / 10) * (BADGE_SIZE + 4);
+    circle.x = bx;
+    circle.y = by;
     badgeGroup.appendChild(circle);
 
     const numText = figma.createText();
@@ -378,8 +399,8 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     numText.resize(BADGE_SIZE, BADGE_SIZE);
     numText.textAlignHorizontal = 'CENTER';
     numText.textAlignVertical = 'CENTER';
-    numText.x = circle.x;
-    numText.y = circle.y;
+    numText.x = bx;
+    numText.y = by;
     badgeGroup.appendChild(numText);
   }
 
@@ -403,4 +424,5 @@ interface AnnotationItem {
   category: string;
   label: string;
   description: string;
+  nodeId?: string;
 }

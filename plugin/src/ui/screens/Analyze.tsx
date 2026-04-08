@@ -291,6 +291,8 @@ async function callGemini(
       category: item.category as AnnotationCategory,
       label: item.label,
       description: item.description,
+      x: typeof item.x === 'number' ? Math.max(0, Math.min(1, item.x)) : undefined,
+      y: typeof item.y === 'number' ? Math.max(0, Math.min(1, item.y)) : undefined,
       nodeId: item.nodeId,
       ariaRole: item.ariaRole,
       ariaNote: item.ariaNote,
@@ -302,6 +304,8 @@ interface AnnotationItem {
   category: string;
   label: string;
   description: string;
+  x?: number;
+  y?: number;
   nodeId?: string;
   ariaRole?: string;
   ariaNote?: string;
@@ -314,12 +318,12 @@ function buildPrompt(
   frameName: string,
 ): string {
   const categoryDescriptions: Record<AnnotationCategory, string> = {
-    'alt-text':    'Alternative text for images and icons (mark decorative ones as "Decorative")',
-    'landmarks':   'Page regions: header, nav, main, footer, aside, section (Web only)',
-    'headings':    'Heading hierarchy: H1–H6 and their text content',
-    'aria':        'ARIA roles, states and properties for custom/interactive elements',
-    'input-roles': 'Input types and roles: text, email, password, search, button, combobox, etc.',
-    'focus-order': 'Logical keyboard/focus tab order based on visual layout and layer hierarchy. Number each focusable element in the order a keyboard user should reach it (left-to-right, top-to-bottom unless layout dictates otherwise). Flag any elements that appear visually but should be skipped (aria-hidden) or that break expected reading order.',
+    'alt-text':    'Alternative text for every image and icon — mark each one as either the descriptive alt string or "Decorative" (aria-hidden="true"). Annotate EVERY instance separately, even identical-looking icons on different cards.',
+    'landmarks':   'Page regions: header/banner, nav, main, footer, aside, section. Annotate each distinct region.',
+    'headings':    'Complete heading hierarchy: every H1–H6 and its visible text content.',
+    'aria':        'ARIA roles, states and properties for custom or composite interactive elements (tabs, live regions, dialogs, etc.). Only annotate what cannot be expressed with native HTML semantics.',
+    'input-roles': 'Every interactive control: buttons, links, inputs, checkboxes, toggles, tabs. Annotate every instance separately even on repeated cards.',
+    'focus-order': 'Logical keyboard tab order. Number every focusable element in the order a keyboard user reaches it (left-to-right, top-to-bottom unless layout dictates otherwise). Flag elements that should be skipped (aria-hidden) or break expected reading order.',
   };
 
   const requestedCategories = categories
@@ -328,33 +332,35 @@ function buildPrompt(
 
   return `You are an expert accessibility auditor analysing a ${platform} UI design frame called "${frameName}".
 
-I am providing you with:
+I am providing:
 1. A screenshot of the design frame
-2. The Figma layer tree as JSON (names, types, text content, colors)
+2. The Figma layer tree as JSON (node ids, names, types, text content)
 
 Layer tree:
 ${JSON.stringify(layerTree, null, 2)}
 
-Your task: generate accessibility annotations for the following categories:
+Generate accessibility annotations for these categories:
 ${requestedCategories}
 
-Rules:
-- Be specific and actionable. Each annotation should help a developer implement the correct accessibility attribute.
-- For alt-text: distinguish between "Written" (has meaningful content) and "Decorative" (aria-hidden="true")
-- For ARIA: only annotate elements that genuinely need explicit ARIA (don't annotate native semantic elements)
-- Number annotations sequentially across all categories, starting from 1
-- For EVERY item, set "nodeId" to the exact "id" value of the corresponding node from the layer tree JSON above. If the annotation covers a container or group, use its id. If no single node matches, omit the field.
+RULES — follow these exactly:
+1. Be EXHAUSTIVE. Annotate every element that qualifies. Never merge similar items into one — annotate each card's image, each button, each icon separately.
+2. Number annotations sequentially across all categories starting from 1.
+3. For EVERY item, look at the screenshot and set "x" and "y" to the element's approximate position as a fraction of the total frame dimensions (x: 0=left edge, 1=right edge; y: 0=top edge, 1=bottom edge). Target the top-left corner of the element. These values must be between 0 and 1.
+4. For "nodeId", use the exact "id" value of the best-matching node from the layer tree JSON. Omit only if truly no node corresponds.
+5. Descriptions must be concrete implementation values (e.g. alt="Mountain bike on grassy outdoor trail"), not vague instructions.
 
-Return ONLY valid JSON in this exact schema — no markdown, no explanation:
+Return ONLY valid JSON — no markdown fences, no explanation:
 {
   "items": [
     {
       "category": "alt-text" | "landmarks" | "headings" | "aria" | "input-roles" | "focus-order",
-      "label": "Short element label (e.g. 'Search bar', 'Navigation', 'H1 - Page title')",
-      "description": "The actual annotation value (e.g. 'Search products', 'role=\\"navigation\\" aria-label=\\"Main navigation\\"')",
-      "nodeId": "the id field of the matching node from the layer tree, e.g. '123:456'",
+      "label": "Short element label (e.g. 'Hero image', 'Main nav', 'H1 – Purchases')",
+      "description": "Concrete annotation value (e.g. 'alt=\\"Mountain bike\\"' or 'role=\\"tablist\\"')",
+      "x": 0.15,
+      "y": 0.08,
+      "nodeId": "123:456",
       "ariaRole": "optional ARIA role string",
-      "ariaNote": "optional additional note for developers"
+      "ariaNote": "optional developer note"
     }
   ]
 }`;

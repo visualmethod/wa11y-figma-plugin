@@ -16,6 +16,9 @@ export interface AnnotationItem {
   category: AnnotationCategory;
   label: string;
   description: string;
+  /** Normalized badge position within the frame (0=left/top, 1=right/bottom) */
+  x?: number;
+  y?: number;
   nodeId?: string;
   ariaRole?: string;
   ariaNote?: string;

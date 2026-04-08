@@ -373,33 +373,43 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   }
 
   // ── Place numbered badges on top of their annotated elements ────────────
+  // Priority: 1) Claude's visual x/y coords  2) nodeId absoluteBoundingBox  3) grid fallback
   let fallbackCol = 0;
   let fallbackRow = 0;
 
   for (const item of annotations.items) {
-    // Try to position badge on the actual element
-    let bx: number | null = null;
-    let by: number | null = null;
+    let bx: number;
+    let by: number;
 
-    if (item.nodeId) {
+    if (typeof item.x === 'number' && typeof item.y === 'number') {
+      // Visual coordinates returned by Claude (most reliable — based on the screenshot)
+      bx = item.x * frame.width  - BADGE_SIZE / 2;
+      by = item.y * frame.height - BADGE_SIZE / 2;
+    } else if (item.nodeId) {
+      // Resolve node in the layer tree to get its absolute position
       const targetNode = await figma.getNodeByIdAsync(item.nodeId) as SceneNode | null;
       const bounds = targetNode && 'absoluteBoundingBox' in targetNode
         ? targetNode.absoluteBoundingBox
         : null;
       if (bounds) {
-        // Top-left corner of element, offset so badge is centred on the corner
         bx = bounds.x - frameBounds.x - BADGE_SIZE / 2;
         by = bounds.y - frameBounds.y - BADGE_SIZE / 2;
+      } else {
+        bx = 8 + fallbackCol * (BADGE_SIZE + 4);
+        by = 8 + fallbackRow * (BADGE_SIZE + 4);
+        fallbackCol++;
+        if (fallbackCol >= 8) { fallbackCol = 0; fallbackRow++; }
       }
-    }
-
-    // Fallback: grid at top-left of frame
-    if (bx === null || by === null) {
+    } else {
       bx = 8 + fallbackCol * (BADGE_SIZE + 4);
       by = 8 + fallbackRow * (BADGE_SIZE + 4);
       fallbackCol++;
-      if (fallbackCol >= 10) { fallbackCol = 0; fallbackRow++; }
+      if (fallbackCol >= 8) { fallbackCol = 0; fallbackRow++; }
     }
+
+    // Clamp so badges stay within the frame bounds (with a small margin)
+    bx = Math.max(-BADGE_SIZE / 2, Math.min(frame.width  - BADGE_SIZE / 2, bx));
+    by = Math.max(-BADGE_SIZE / 2, Math.min(frame.height - BADGE_SIZE / 2, by));
 
     const circle = figma.createEllipse();
     circle.name = `#${item.number} ${item.label}`;
@@ -442,5 +452,7 @@ interface AnnotationItem {
   category: string;
   label: string;
   description: string;
+  x?: number;
+  y?: number;
   nodeId?: string;
 }

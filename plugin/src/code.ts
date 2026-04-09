@@ -169,7 +169,26 @@ function handleQueryAnnotationFrames(frameName: string) {
 
 async function handleToggleCategory(frameId: string, visible: boolean) {
   const node = await figma.getNodeByIdAsync(frameId);
-  if (node) node.visible = visible;
+  if (!node) return;
+  node.visible = visible;
+
+  // If this is a category badge frame, also toggle the matching guide section.
+  // Badge frame name:  "[wa11y] {frameName} — {category}"
+  // Guide frame name:  "[wa11y] {frameName} — Guide"
+  // Guide section name: "section:{category}" (direct child of guide frame)
+  const m = node.name.match(/^(\[wa11y\] .+) — (.+)$/);
+  if (!m) return;
+  const [, prefix, category] = m;
+  if (category === 'Guide') return; // guide toggle itself — nothing more to do
+
+  const guideName = `${prefix} — Guide`;
+  const guideFrame = figma.currentPage.children.find(
+    (n) => n.name === guideName,
+  ) as FrameNode | undefined;
+  if (!guideFrame) return;
+
+  const section = guideFrame.children.find((n) => n.name === `section:${category}`);
+  if (section) section.visible = visible;
 }
 
 // ─── Layer tree extraction ────────────────────────────────────────────────────
@@ -317,15 +336,30 @@ async function placeAnnotationsOnCanvas(
   }
 
   // ── Build guide sections ─────────────────────────────────────────────────
+  // Each category is wrapped in a named section frame so toggling a category
+  // can collapse its guide section alongside hiding its badge overlay.
   let firstSection = true;
   for (const [category, items] of byCategory) {
+    // Section wrapper: STRETCH width, AUTO height, participates in guide auto-layout
+    const section = figma.createFrame();
+    section.name = `section:${category}`;
+    section.fills = [];
+    section.layoutMode = 'VERTICAL';
+    section.itemSpacing = 0;
+    section.layoutAlign = 'STRETCH';
+    section.primaryAxisSizingMode = 'AUTO';
+    section.counterAxisSizingMode = 'FIXED';
+    section.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 10);
+    guide.appendChild(section);
+
+    // Divider lives inside the section so it hides with it
     if (!firstSection) {
       const div = figma.createRectangle();
       div.name = 'divider';
-      div.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 1);
       div.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
       div.layoutAlign = 'STRETCH';
-      guide.appendChild(div);
+      div.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 1);
+      section.appendChild(div);
     }
     firstSection = false;
 
@@ -342,7 +376,7 @@ async function placeAnnotationsOnCanvas(
     headerRow.counterAxisAlignItems = 'CENTER';
     headerRow.layoutAlign = 'STRETCH';
     headerRow.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 28);
-    guide.appendChild(headerRow);
+    section.appendChild(headerRow);
 
     const dot = figma.createEllipse();
     dot.resize(8, 8);
@@ -360,7 +394,6 @@ async function placeAnnotationsOnCanvas(
 
     // Items
     for (const item of items) {
-      // Row: fill parent width, auto height so descriptions never truncate
       const row = figma.createFrame();
       row.name = `#${item.number}`;
       row.fills = [];
@@ -369,10 +402,10 @@ async function placeAnnotationsOnCanvas(
       row.paddingTop = 4;
       row.paddingBottom = 8;
       row.counterAxisAlignItems = 'MIN';
-      row.layoutAlign = 'STRETCH';          // fill guide width
-      row.primaryAxisSizingMode = 'FIXED';  // width from STRETCH
-      row.counterAxisSizingMode = 'AUTO';   // height follows content — no resize() call
-      guide.appendChild(row);
+      row.layoutAlign = 'STRETCH';
+      row.primaryAxisSizingMode = 'FIXED';
+      row.counterAxisSizingMode = 'AUTO';
+      section.appendChild(row);
 
       // Numbered badge (coloured circle with annotation number inside)
       const numBadge = figma.createFrame();
@@ -396,7 +429,7 @@ async function placeAnnotationsOnCanvas(
       numBadgeText.textAutoResize = 'WIDTH_AND_HEIGHT';
       numBadge.appendChild(numBadgeText);
 
-      // Text column: vertical, auto height, fills remaining width
+      // Text column
       const textCol = figma.createFrame();
       textCol.fills = [];
       textCol.layoutMode = 'VERTICAL';

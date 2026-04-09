@@ -166,17 +166,23 @@ export default function Done({ state, postMessage, setScreen }: Props) {
                     <span style={{ fontSize: 11, color: 'var(--color-text-muted)', minWidth: 16, textAlign: 'right' }}>
                       {catCount}
                     </span>
-                    <button
+                    <div
+                      role="checkbox"
+                      aria-checked={visible}
+                      tabIndex={0}
                       onClick={() => toggle(frameId, !visible)}
+                      onKeyDown={(e) => e.key === ' ' && toggle(frameId, !visible)}
                       title={visible ? 'Hide' : 'Show'}
                       style={{
-                        background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-                        fontSize: 15, lineHeight: 1,
-                        color: visible ? 'var(--color-text)' : 'var(--color-text-muted)',
+                        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                        border: `1.5px solid ${visible ? (meta?.color ?? 'var(--color-primary)') : 'var(--color-border)'}`,
+                        background: visible ? (meta?.color ?? 'var(--color-primary)') : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', transition: 'all 0.15s',
                       }}
                     >
-                      {visible ? '◉' : '◎'}
-                    </button>
+                      {visible && <span style={{ color: '#fff', fontSize: 10, lineHeight: 1, fontWeight: 700, userSelect: 'none' }}>✓</span>}
+                    </div>
                   </div>
                 );
               })}
@@ -200,17 +206,23 @@ export default function Done({ state, postMessage, setScreen }: Props) {
                       border: '1.5px solid var(--color-text-muted)',
                     }} />
                     <span style={{ flex: 1, fontSize: 13 }}>Annotation guide</span>
-                    <button
+                    <div
+                      role="checkbox"
+                      aria-checked={guide.visible}
+                      tabIndex={0}
                       onClick={() => toggle(guide.frameId, !guide.visible)}
+                      onKeyDown={(e) => e.key === ' ' && toggle(guide.frameId, !guide.visible)}
                       title={guide.visible ? 'Hide guide' : 'Show guide'}
                       style={{
-                        background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-                        fontSize: 15, lineHeight: 1,
-                        color: guide.visible ? 'var(--color-text)' : 'var(--color-text-muted)',
+                        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                        border: `1.5px solid ${guide.visible ? 'var(--color-text-muted)' : 'var(--color-border)'}`,
+                        background: guide.visible ? 'var(--color-text-muted)' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', transition: 'all 0.15s',
                       }}
                     >
-                      {guide.visible ? '◉' : '◎'}
-                    </button>
+                      {guide.visible && <span style={{ color: '#fff', fontSize: 10, lineHeight: 1, fontWeight: 700, userSelect: 'none' }}>✓</span>}
+                    </div>
                   </div>
                 </>
               )}

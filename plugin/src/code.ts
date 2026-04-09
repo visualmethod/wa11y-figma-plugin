@@ -377,16 +377,17 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   let fallbackCol = 0;
   let fallbackRow = 0;
 
+  // Track placed badge centres to detect and resolve stacking
+  const placedPositions: Array<{ bx: number; by: number }> = [];
+
   for (const item of annotations.items) {
     let bx: number;
     let by: number;
 
     if (typeof item.x === 'number' && typeof item.y === 'number') {
-      // Visual coordinates returned by Claude (most reliable — based on the screenshot)
       bx = item.x * frame.width  - BADGE_SIZE / 2;
       by = item.y * frame.height - BADGE_SIZE / 2;
     } else if (item.nodeId) {
-      // Resolve node in the layer tree to get its absolute position
       const targetNode = await figma.getNodeByIdAsync(item.nodeId) as SceneNode | null;
       const bounds = targetNode && 'absoluteBoundingBox' in targetNode
         ? targetNode.absoluteBoundingBox
@@ -407,9 +408,28 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
       if (fallbackCol >= 8) { fallbackCol = 0; fallbackRow++; }
     }
 
-    // Clamp so badges stay within the frame bounds (with a small margin)
-    bx = Math.max(-BADGE_SIZE / 2, Math.min(frame.width  - BADGE_SIZE / 2, bx));
-    by = Math.max(-BADGE_SIZE / 2, Math.min(frame.height - BADGE_SIZE / 2, by));
+    // Clamp so the badge body stays fully inside the frame
+    bx = Math.max(0, Math.min(frame.width  - BADGE_SIZE, bx));
+    by = Math.max(0, Math.min(frame.height - BADGE_SIZE, by));
+
+    // Resolve collisions: if this badge overlaps an already-placed one,
+    // nudge it right (and wrap down if it hits the frame edge) until clear.
+    const STEP = BADGE_SIZE + 2;
+    let attempts = 0;
+    while (attempts < 60) {
+      const clash = placedPositions.some(
+        (p) => Math.abs(p.bx - bx) < BADGE_SIZE && Math.abs(p.by - by) < BADGE_SIZE,
+      );
+      if (!clash) break;
+      bx += STEP;
+      if (bx + BADGE_SIZE > frame.width) {
+        bx = 0;
+        by += STEP;
+        if (by + BADGE_SIZE > frame.height) by = frame.height - BADGE_SIZE;
+      }
+      attempts++;
+    }
+    placedPositions.push({ bx, by });
 
     const circle = figma.createEllipse();
     circle.name = `#${item.number} ${item.label}`;

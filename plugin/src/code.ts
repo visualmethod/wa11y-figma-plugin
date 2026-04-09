@@ -190,12 +190,12 @@ function solidPaintToColor(paint: SolidPaint): ColorValue {
 // ─── Annotation placement ─────────────────────────────────────────────────────
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'alt-text':    '#038673',
-  'landmarks':   '#86418a',
-  'headings':    '#385ef9',
-  'aria':        '#956a0d',
-  'input-roles': '#ce3528',
-  'focus-order': '#136d60',
+  'alt-text':    '#385ef9',  // blue
+  'landmarks':   '#86418a',  // purple
+  'headings':    '#956a0d',  // amber
+  'aria':        '#038673',  // teal (brand)
+  'input-roles': '#ce3528',  // red
+  'focus-order': '#228618',  // green
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -412,16 +412,18 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     bx = Math.max(0, Math.min(frame.width  - BADGE_SIZE, bx));
     by = Math.max(0, Math.min(frame.height - BADGE_SIZE, by));
 
-    // Resolve collisions using a radial spiral: try 8 directions at
-    // increasing distance (up to 3 rings). This keeps each badge as close
-    // as possible to its target element instead of cascading to the bottom.
-    const STEP = BADGE_SIZE + 2;
+    // Resolve collisions using a radial spiral.
+    // EXCL_ZONE: how close two badge centres can be (badge size + 4px breathing room).
+    // STEP: distance between rings.
+    // Up to 6 rings × 8 directions = 48 candidate positions tried before giving up.
+    const EXCL = BADGE_SIZE + 4;
+    const STEP = BADGE_SIZE + 4;
     const isClear = (cx: number, cy: number) =>
-      !placedPositions.some((p) => Math.abs(p.bx - cx) < BADGE_SIZE && Math.abs(p.by - cy) < BADGE_SIZE);
+      !placedPositions.some((p) => Math.abs(p.bx - cx) < EXCL && Math.abs(p.by - cy) < EXCL);
 
     if (!isClear(bx, by)) {
       let resolved = false;
-      outer: for (let ring = 1; ring <= 4 && !resolved; ring++) {
+      outer: for (let ring = 1; ring <= 6 && !resolved; ring++) {
         const d = ring * STEP;
         for (const [dx, dy] of [
           [0, -d], [d, -d], [d, 0], [d, d],
@@ -436,8 +438,8 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
           }
         }
       }
-      // If no free slot within 4 rings, keep original position — badges overlap
-      // but remain near their element (better than cascading to a wrong location)
+      // Beyond 6 rings: keep original (slight overlap near the element is
+      // better than displacing the badge to an unrelated area of the frame)
     }
     placedPositions.push({ bx, by });
 

@@ -3,12 +3,12 @@ import type { Screen, AnnotationCategory, AnnotationItem, AnnotationSet } from '
 import type { AppState } from '../App';
 
 const CATEGORY_META: Record<AnnotationCategory, { label: string; color: string }> = {
-  'alt-text':    { label: 'Alt-Text',        color: '#038673' },  // brand.mid
-  'landmarks':   { label: 'Landmarks',        color: '#86418a' },  // semantic.light.purple.mid
-  'headings':    { label: 'Headings',         color: '#385ef9' },  // semantic.light.blue.mid
-  'aria':        { label: 'ARIA & Semantics', color: '#956a0d' },  // semantic.light.warning.mid
-  'input-roles': { label: 'Input Roles',      color: '#ce3528' },  // semantic.light.negative.mid
-  'focus-order': { label: 'Focus Order',      color: '#136d60' },  // semantic.light.lime.high
+  'alt-text':    { label: 'Alt-Text',        color: '#385ef9' },  // blue
+  'landmarks':   { label: 'Landmarks',        color: '#86418a' },  // purple
+  'headings':    { label: 'Headings',         color: '#956a0d' },  // amber
+  'aria':        { label: 'ARIA & Semantics', color: '#038673' },  // teal (brand)
+  'input-roles': { label: 'Input Roles',      color: '#ce3528' },  // red
+  'focus-order': { label: 'Focus Order',      color: '#228618' },  // green
 };
 
 interface Props {
@@ -45,18 +45,26 @@ export default function Review({ state, updateState, setScreen, postMessage }: P
     updateState({ pendingAnnotations: next });
   };
 
+  /** Re-number all items per-category (1, 2, 3… within each category) */
+  const renumberPerCategory = (items: AnnotationItem[]) => {
+    const counters: Record<string, number> = {};
+    return items.map((item) => {
+      counters[item.category] = (counters[item.category] ?? 0) + 1;
+      return { ...item, number: counters[item.category] };
+    });
+  };
+
   const deleteItem = (id: string) => {
     const remaining = annotations.items.filter((i) => i.id !== id);
-    // Re-number
-    const renumbered = remaining.map((item, idx) => ({ ...item, number: idx + 1 }));
-    updateState({ pendingAnnotations: { ...annotations, items: renumbered } });
+    updateState({ pendingAnnotations: { ...annotations, items: renumberPerCategory(remaining) } });
   };
 
   const addItem = () => {
     const cat = activeCategory === 'all' ? usedCategories[0] : activeCategory;
+    const catCount = annotations.items.filter((i) => i.category === cat).length;
     const newItem: AnnotationItem = {
       id: `item-${Date.now()}`,
-      number: annotations.items.length + 1,
+      number: catCount + 1,
       category: cat,
       label: 'New annotation',
       description: '',

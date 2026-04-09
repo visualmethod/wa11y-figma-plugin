@@ -297,18 +297,26 @@ async function callGemini(
     frameName,
     platform,
     categories,
-    items: parsed.items.map((item, i) => ({
-      id: `item-${i}`,
-      number: i + 1,
-      category: item.category as AnnotationCategory,
-      label: item.label,
-      description: item.description,
-      x: typeof item.x === 'number' ? Math.max(0, Math.min(1, item.x)) : undefined,
-      y: typeof item.y === 'number' ? Math.max(0, Math.min(1, item.y)) : undefined,
-      nodeId: item.nodeId,
-      ariaRole: item.ariaRole,
-      ariaNote: item.ariaNote,
-    })),
+    // Assign per-category sequential numbers so each section reads 1, 2, 3…
+    items: (() => {
+      const counters: Record<string, number> = {};
+      return parsed.items.map((item, i) => {
+        const cat = item.category as AnnotationCategory;
+        counters[cat] = (counters[cat] ?? 0) + 1;
+        return {
+          id: `item-${i}`,
+          number: counters[cat],
+          category: cat,
+          label: item.label,
+          description: item.description,
+          x: typeof item.x === 'number' ? Math.max(0, Math.min(1, item.x)) : undefined,
+          y: typeof item.y === 'number' ? Math.max(0, Math.min(1, item.y)) : undefined,
+          nodeId: item.nodeId,
+          ariaRole: item.ariaRole,
+          ariaNote: item.ariaNote,
+        };
+      });
+    })(),
   };
 }
 

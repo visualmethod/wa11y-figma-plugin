@@ -59,6 +59,14 @@ figma.ui.onmessage = async (msg: UIMessage) => {
       await handlePlaceAnnotations(msg.annotations);
       break;
 
+    case 'query-annotation-frames':
+      handleQueryAnnotationFrames(msg.frameName);
+      break;
+
+    case 'toggle-category':
+      await handleToggleCategory(msg.frameId, msg.visible);
+      break;
+
     case 'resize':
       figma.ui.resize(msg.width, msg.height);
       break;
@@ -122,13 +130,46 @@ async function handlePlaceAnnotations(annotations: AnnotationSet) {
       figma.ui.postMessage({ type: 'export-error', message: 'Frame not found. Please re-select it.' });
       return;
     }
-    await placeAnnotationsOnCanvas(node as FrameNode, annotations);
-    figma.ui.postMessage({ type: 'annotations-placed', count: annotations.items.length });
+    const { categoryFrameIds, guideFrameId } = await placeAnnotationsOnCanvas(
+      node as FrameNode,
+      annotations,
+    );
+    figma.ui.postMessage({
+      type: 'annotations-placed',
+      count: annotations.items.length,
+      categoryFrameIds,
+      guideFrameId,
+    });
     figma.notify(`✓ ${annotations.items.length} annotations placed`, { timeout: 3000 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown placement error';
     figma.ui.postMessage({ type: 'export-error', message: `Placement failed: ${message}` });
   }
+}
+
+function handleQueryAnnotationFrames(frameName: string) {
+  const prefix = `[wa11y] ${frameName} — `;
+  const frames: Array<{ category: string; frameId: string; visible: boolean }> = [];
+  let guideFrameId: string | null = null;
+  let guideVisible = true;
+
+  for (const child of figma.currentPage.children) {
+    if (!child.name.startsWith(prefix)) continue;
+    const suffix = child.name.slice(prefix.length);
+    if (suffix === 'Guide') {
+      guideFrameId = child.id;
+      guideVisible = child.visible;
+    } else {
+      frames.push({ category: suffix, frameId: child.id, visible: child.visible });
+    }
+  }
+
+  figma.ui.postMessage({ type: 'annotation-frames-state', frames, guideFrameId, guideVisible });
+}
+
+async function handleToggleCategory(frameId: string, visible: boolean) {
+  const node = await figma.getNodeByIdAsync(frameId);
+  if (node) node.visible = visible;
 }
 
 // ─── Layer tree extraction ────────────────────────────────────────────────────
@@ -207,11 +248,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   'focus-order': 'Focus Order',
 };
 
-async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: AnnotationSet) {
+async function placeAnnotationsOnCanvas(
+  frame: FrameNode,
+  annotations: AnnotationSet,
+): Promise<{ categoryFrameIds: Record<string, string>; guideFrameId: string }> {
   const BADGE_SIZE = 24;
   const GUIDE_WIDTH = 280;
   const GUIDE_PADDING = 16;
   const GAP = 32;
+
+  // ── Cleanup: remove any previously placed wa11y frames for this target ──
+  const namePrefix = `[wa11y] ${frame.name} — `;
+  for (const child of [...figma.currentPage.children]) {
+    if (child.name.startsWith(namePrefix)) child.remove();
+  }
 
   // Load all fonts before touching any text nodes
   await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
@@ -220,7 +270,7 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
 
   // Absolute canvas coords — frame.x/y are relative to parent, not the page
   const frameBounds = frame.absoluteBoundingBox;
-  if (!frameBounds) return;
+  if (!frameBounds) return { categoryFrameIds: {}, guideFrameId: '' };
 
   // ── Annotation guide (placed to the LEFT of the frame) ──────────────────
   const guide = figma.createFrame();
@@ -242,15 +292,22 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
   guide.y = frameBounds.y;
   figma.currentPage.appendChild(guide);
 
-  // ── Badge overlay (same size/position as frame, placed on top) ──────────
-  const badgeGroup = figma.createFrame();
-  badgeGroup.name = `[wa11y] ${frame.name} — Badges`;
-  badgeGroup.fills = [];
-  badgeGroup.clipsContent = false;
-  badgeGroup.resize(frame.width, frame.height);
-  badgeGroup.x = frameBounds.x;
-  badgeGroup.y = frameBounds.y;
-  figma.currentPage.appendChild(badgeGroup);
+  // ── Per-category badge overlay frames (one per category, created lazily) ─
+  // Built after byCategory is populated so we only create frames we need.
+  const categoryFrameMap = new Map<string, FrameNode>();
+  const makeCategoryFrame = (category: string): FrameNode => {
+    if (categoryFrameMap.has(category)) return categoryFrameMap.get(category)!;
+    const cf = figma.createFrame();
+    cf.name = `[wa11y] ${frame.name} — ${category}`;
+    cf.fills = [];
+    cf.clipsContent = false;
+    cf.resize(frame.width, frame.height);
+    cf.x = frameBounds.x;
+    cf.y = frameBounds.y;
+    figma.currentPage.appendChild(cf);
+    categoryFrameMap.set(category, cf);
+    return cf;
+  };
 
   // ── Group items by category ──────────────────────────────────────────────
   const byCategory = new Map<string, AnnotationItem[]>();
@@ -443,13 +500,15 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     }
     placedPositions.push({ bx, by });
 
+    const cf = makeCategoryFrame(item.category);
+
     const circle = figma.createEllipse();
     circle.name = `#${item.number} ${item.label}`;
     circle.resize(BADGE_SIZE, BADGE_SIZE);
     circle.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[item.category] ?? '#888') }];
     circle.x = bx;
     circle.y = by;
-    badgeGroup.appendChild(circle);
+    cf.appendChild(circle);
 
     const numText = figma.createText();
     numText.fontName = { family: 'Inter', style: 'Bold' };
@@ -461,10 +520,15 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     numText.textAlignVertical = 'CENTER';
     numText.x = bx;
     numText.y = by;
-    badgeGroup.appendChild(numText);
+    cf.appendChild(numText);
   }
 
-  figma.viewport.scrollAndZoomIntoView([guide, badgeGroup]);
+  figma.viewport.scrollAndZoomIntoView([guide, ...categoryFrameMap.values()]);
+
+  const categoryFrameIds: Record<string, string> = {};
+  for (const [cat, cf] of categoryFrameMap) categoryFrameIds[cat] = cf.id;
+
+  return { categoryFrameIds, guideFrameId: guide.id };
 }
 
 

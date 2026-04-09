@@ -1,7 +1,22 @@
-import React, { useState } from 'react';
-import type { Screen } from '../../shared/types';
+import React, { useState, useEffect } from 'react';
+import type { Screen, AnnotationCategory } from '../../shared/types';
 import type { AppState } from '../App';
 import Logo from '../components/Logo';
+
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  'alt-text':    { label: 'Alt-Text',        color: '#385ef9' },
+  'landmarks':   { label: 'Landmarks',        color: '#86418a' },
+  'headings':    { label: 'Headings',         color: '#956a0d' },
+  'aria':        { label: 'ARIA & Semantics', color: '#038673' },
+  'input-roles': { label: 'Input Roles',      color: '#ce3528' },
+  'focus-order': { label: 'Focus Order',      color: '#228618' },
+};
+
+interface CategoryRow {
+  category: string;
+  frameId: string;
+  visible: boolean;
+}
 
 interface Props {
   state: AppState;
@@ -10,13 +25,55 @@ interface Props {
 }
 
 export default function Done({ state, postMessage, setScreen }: Props) {
-  const count = state.pendingAnnotations?.items.length ?? 0;
+  const annotations = state.pendingAnnotations;
+  const placedFrames = state.placedFrames;
+  const count = annotations?.items.length ?? 0;
+  const frameName = annotations?.frameName ?? placedFrames?.frameName ?? '';
+
+  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+  const [guide, setGuide] = useState<{ frameId: string; visible: boolean } | null>(null);
   const [widgetAdded, setWidgetAdded] = useState(false);
 
-  const handleAddWidget = () => {
-    postMessage({ type: 'add-widget' });
-    setWidgetAdded(true);
+  // Count items per category from annotation state
+  const categoryCounts: Record<string, number> = {};
+  annotations?.items.forEach((item) => {
+    categoryCounts[item.category] = (categoryCounts[item.category] ?? 0) + 1;
+  });
+
+  // Query current Figma layer visibility on mount — Figma is the source of truth,
+  // so this restores filter state even after the plugin is reopened.
+  useEffect(() => {
+    if (!frameName) return;
+    postMessage({ type: 'query-annotation-frames', frameName });
+
+    const handler = (event: MessageEvent) => {
+      const msg = event.data?.pluginMessage;
+      if (msg?.type !== 'annotation-frames-state') return;
+      window.removeEventListener('message', handler);
+      setCategoryRows(msg.frames as CategoryRow[]);
+      if (msg.guideFrameId) {
+        setGuide({ frameId: msg.guideFrameId, visible: msg.guideVisible });
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [frameName]);
+
+  const toggle = (frameId: string, visible: boolean) => {
+    postMessage({ type: 'toggle-category', frameId, visible });
+    setCategoryRows((rows) => rows.map((r) => r.frameId === frameId ? { ...r, visible } : r));
+    if (guide?.frameId === frameId) setGuide((g) => g ? { ...g, visible } : g);
   };
+
+  const toggleAll = (visible: boolean) => {
+    categoryRows.forEach((r) => toggle(r.frameId, visible));
+    if (guide) toggle(guide.frameId, visible);
+  };
+
+  const allVisible = categoryRows.every((r) => r.visible) && (guide?.visible ?? true);
+  const noneVisible = categoryRows.every((r) => !r.visible) && !(guide?.visible ?? true);
+
+  const hasFilterData = categoryRows.length > 0;
 
   return (
     <div className="screen">
@@ -27,46 +84,163 @@ export default function Done({ state, postMessage, setScreen }: Props) {
         </div>
       </header>
 
-      <div className="screen-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 40 }}>
-        <div
-          style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: 'var(--color-primary-bg)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 28,
-          }}
-        >
-          ✓
-        </div>
-        <h2 style={{ textAlign: 'center' }}>Annotations placed</h2>
-        <p style={{ textAlign: 'center' }}>
-          {count} annotation{count !== 1 ? 's' : ''} added to{' '}
-          <strong>{state.pendingAnnotations?.frameName}</strong>.
-          <br />
-          Badges and the annotation guide are on your canvas.
-        </p>
+      <div className="screen-body" style={{ padding: '16px' }}>
 
-        <div className="divider" style={{ width: '100%' }} />
-
-        {!widgetAdded ? (
-          <div className="card" style={{ width: '100%' }}>
-            <div className="card-title" style={{ marginBottom: 6 }}>Add the checklist too?</div>
-            <div className="card-desc">
-              Drop an accessibility checklist onto the canvas to track your review criteria
-              alongside the annotations.
+        {/* Success summary */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div
+            style={{
+              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+              background: 'var(--color-primary-bg)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, color: 'var(--color-primary)',
+            }}
+          >
+            ✓
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>
+              {count} annotation{count !== 1 ? 's' : ''} placed
             </div>
-            <button className="btn btn-secondary" style={{ width: '100%' }} onClick={handleAddWidget}>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              on <strong>{frameName}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="divider" style={{ marginBottom: 16 }} />
+
+        {/* Category filter */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+              Show / hide categories
+            </span>
+            {hasFilterData && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '2px 8px', fontSize: 11, opacity: allVisible ? 0.4 : 1 }}
+                  onClick={() => toggleAll(true)}
+                  disabled={allVisible}
+                >
+                  All
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '2px 8px', fontSize: 11, opacity: noneVisible ? 0.4 : 1 }}
+                  onClick={() => toggleAll(false)}
+                  disabled={noneVisible}
+                >
+                  None
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!hasFilterData ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', padding: '8px 0' }}>
+              No annotation frames found on canvas.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {categoryRows.map(({ category, frameId, visible }) => {
+                const meta = CATEGORY_META[category];
+                const catCount = categoryCounts[category as AnnotationCategory] ?? '–';
+                return (
+                  <div
+                    key={frameId}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 8px', borderRadius: 'var(--radius-md)',
+                      background: visible ? 'transparent' : 'var(--color-bg-secondary)',
+                      opacity: visible ? 1 : 0.55,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{
+                      width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                      background: meta?.color ?? '#888',
+                    }} />
+                    <span style={{ flex: 1, fontSize: 13 }}>{meta?.label ?? category}</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', minWidth: 16, textAlign: 'right' }}>
+                      {catCount}
+                    </span>
+                    <button
+                      onClick={() => toggle(frameId, !visible)}
+                      title={visible ? 'Hide' : 'Show'}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                        fontSize: 15, lineHeight: 1,
+                        color: visible ? 'var(--color-text)' : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {visible ? '◉' : '◎'}
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Guide sidebar row */}
+              {guide && (
+                <>
+                  <div style={{ height: 1, background: 'var(--color-border)', margin: '4px 0' }} />
+                  <div
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 8px', borderRadius: 'var(--radius-md)',
+                      background: guide.visible ? 'transparent' : 'var(--color-bg-secondary)',
+                      opacity: guide.visible ? 1 : 0.55,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{
+                      width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+                      background: 'var(--color-border)',
+                      border: '1.5px solid var(--color-text-muted)',
+                    }} />
+                    <span style={{ flex: 1, fontSize: 13 }}>Annotation guide</span>
+                    <button
+                      onClick={() => toggle(guide.frameId, !guide.visible)}
+                      title={guide.visible ? 'Hide guide' : 'Show guide'}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                        fontSize: 15, lineHeight: 1,
+                        color: guide.visible ? 'var(--color-text)' : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {guide.visible ? '◉' : '◎'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="divider" style={{ margin: '16px 0' }} />
+
+        {/* Checklist upsell */}
+        {!widgetAdded ? (
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 4 }}>Add the checklist too?</div>
+            <div className="card-desc" style={{ marginBottom: 8 }}>
+              Drop an accessibility checklist onto the canvas alongside the annotations.
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
+              onClick={() => { postMessage({ type: 'add-widget' }); setWidgetAdded(true); }}
+            >
               Add checklist to canvas
             </button>
           </div>
         ) : (
-          <div
-            style={{
-              background: 'var(--color-primary-bg)', border: '1px solid var(--color-primary-light)',
-              borderRadius: 'var(--radius-md)', padding: '12px 16px',
-              width: '100%', textAlign: 'center', fontSize: 13, color: 'var(--color-primary-dark)',
-            }}
-          >
+          <div style={{
+            background: 'var(--color-primary-bg)', border: '1px solid var(--color-primary-light)',
+            borderRadius: 'var(--radius-md)', padding: '10px 14px',
+            textAlign: 'center', fontSize: 13, color: 'var(--color-primary-dark)',
+          }}>
             ✓ Checklist added to canvas
           </div>
         )}

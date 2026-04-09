@@ -7,6 +7,12 @@ import Analyze from './screens/Analyze';
 import Review from './screens/Review';
 import Done from './screens/Done';
 
+export interface PlacedFrames {
+  categoryFrameIds: Record<string, string>;
+  guideFrameId: string;
+  frameName: string;
+}
+
 export interface AppState {
   apiKey: string;
   model: string;
@@ -15,18 +21,21 @@ export interface AppState {
   platform: Platform;
   categories: AnnotationCategory[];
   pendingAnnotations: AnnotationSet | null;
+  /** Frame IDs of the last placed annotation set — used by Done screen filter */
+  placedFrames: PlacedFrames | null;
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [state, setState] = useState<AppState>({
     apiKey: '',
-    model: 'gemini-2.0-flash',
+    model: 'claude-sonnet-4-5',
     selectedFrameId: null,
     selectedFrameName: null,
     platform: 'Web',
     categories: ['alt-text', 'landmarks', 'headings', 'aria', 'input-roles'],
     pendingAnnotations: null,
+    placedFrames: null,
   });
 
   // Load persisted settings from figma.clientStorage on mount
@@ -45,7 +54,7 @@ export default function App() {
           setState((s) => ({
             ...s,
             apiKey: msg.apiKey ?? '',
-            model: msg.model ?? 'gemini-2.0-flash',
+            model: msg.model ?? 'claude-sonnet-4-5',
           }));
           break;
         case 'selection-change':
@@ -53,6 +62,16 @@ export default function App() {
             ...s,
             selectedFrameId: msg.frameId,
             selectedFrameName: msg.frameName,
+          }));
+          break;
+        case 'annotations-placed':
+          setState((s) => ({
+            ...s,
+            placedFrames: {
+              categoryFrameIds: msg.categoryFrameIds,
+              guideFrameId: msg.guideFrameId,
+              frameName: s.pendingAnnotations?.frameName ?? '',
+            },
           }));
           break;
         case 'widget-added':

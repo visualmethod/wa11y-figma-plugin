@@ -40,6 +40,8 @@ export type UIMessage =
   | { type: 'export-frame'; frameId: string }
   | { type: 'add-widget' }
   | { type: 'place-annotations'; annotations: AnnotationSet }
+  | { type: 'query-annotation-frames'; frameName: string }
+  | { type: 'toggle-category'; frameId: string; visible: boolean }
   | { type: 'resize'; width: number; height: number };
 
 export type PluginMessage =
@@ -48,7 +50,8 @@ export type PluginMessage =
   | { type: 'export-result'; imageData: string; layerTree: LayerNode[] }
   | { type: 'export-error'; message: string }
   | { type: 'widget-added' }
-  | { type: 'annotations-placed'; count: number };
+  | { type: 'annotations-placed'; count: number; categoryFrameIds: Record<string, string>; guideFrameId: string }
+  | { type: 'annotation-frames-state'; frames: Array<{ category: string; frameId: string; visible: boolean }>; guideFrameId: string | null; guideVisible: boolean };
 
 // Simplified layer tree sent to AI
 export interface LayerNode {

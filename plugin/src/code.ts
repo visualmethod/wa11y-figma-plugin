@@ -187,8 +187,18 @@ async function handleToggleCategory(frameId: string, visible: boolean) {
   ) as FrameNode | undefined;
   if (!guideFrame) return;
 
-  const section = guideFrame.children.find((n) => n.name === `section:${category}`);
-  if (section) section.visible = visible;
+  // Toggle every guide child whose name starts with the category prefix
+  // (divider:{category}, header:{category}, item:{category}:*)
+  for (const child of guideFrame.children) {
+    const n = child.name;
+    if (
+      n === `divider:${category}` ||
+      n === `header:${category}` ||
+      n.startsWith(`item:${category}:`)
+    ) {
+      child.visible = visible;
+    }
+  }
 }
 
 // ─── Layer tree extraction ────────────────────────────────────────────────────
@@ -336,52 +346,44 @@ async function placeAnnotationsOnCanvas(
   }
 
   // ── Build guide sections ─────────────────────────────────────────────────
-  // Each category is wrapped in a named section frame so toggling a category
-  // can collapse its guide section alongside hiding its badge overlay.
+  // Children are added DIRECTLY to the guide frame (no section wrappers).
+  // Each child is named with a "category:" prefix so handleToggleCategory can
+  // find and hide/show the right children by iterating guide.children.
+  //   divider:{category}   – horizontal rule before each section (except first)
+  //   header:{category}    – coloured label row
+  //   item:{category}:{n}  – individual annotation rows
   let firstSection = true;
   for (const [category, items] of byCategory) {
-    // Section wrapper: STRETCH width, AUTO height, participates in guide auto-layout
-    const section = figma.createFrame();
-    section.name = `section:${category}`;
-    section.fills = [];
-    section.layoutMode = 'VERTICAL';
-    section.itemSpacing = 0;
-    section.layoutAlign = 'STRETCH';
-    section.primaryAxisSizingMode = 'AUTO';
-    section.counterAxisSizingMode = 'FIXED';
-    section.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 10);
-    guide.appendChild(section);
 
-    // Divider lives inside the section so it hides with it
+    // Divider before every section except the first
     if (!firstSection) {
       const div = figma.createRectangle();
-      div.name = 'divider';
+      div.name = `divider:${category}`;
       div.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
       div.layoutAlign = 'STRETCH';
       div.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 1);
-      section.appendChild(div);
+      guide.appendChild(div);
     }
     firstSection = false;
 
-    // Section header row
+    // Section header row — direct child of guide
     const headerRow = figma.createFrame();
-    headerRow.name = `cat:${category}`;
+    headerRow.name = `header:${category}`;
     headerRow.fills = [];
     headerRow.layoutMode = 'HORIZONTAL';
     headerRow.itemSpacing = 6;
     headerRow.paddingTop = 10;
     headerRow.paddingBottom = 6;
-    headerRow.primaryAxisSizingMode = 'FIXED';
+    headerRow.primaryAxisSizingMode = 'AUTO';
     headerRow.counterAxisSizingMode = 'AUTO';
     headerRow.counterAxisAlignItems = 'CENTER';
     headerRow.layoutAlign = 'STRETCH';
-    headerRow.resize(GUIDE_WIDTH - GUIDE_PADDING * 2, 28);
-    section.appendChild(headerRow);
+    guide.appendChild(headerRow);
 
     const dot = figma.createEllipse();
     dot.resize(8, 8);
     dot.fills = [{ type: 'SOLID', color: hexToRgb(CATEGORY_COLORS[category] ?? '#888') }];
-    dot.layoutAlign = 'INHERIT';
+    dot.layoutAlign = 'CENTER';
     headerRow.appendChild(dot);
 
     const headerText = figma.createText();
@@ -392,10 +394,10 @@ async function placeAnnotationsOnCanvas(
     headerText.textAutoResize = 'WIDTH_AND_HEIGHT';
     headerRow.appendChild(headerText);
 
-    // Items
+    // Items — each a direct child of guide, named item:{category}:{number}
     for (const item of items) {
       const row = figma.createFrame();
-      row.name = `#${item.number}`;
+      row.name = `item:${category}:${item.number}`;
       row.fills = [];
       row.layoutMode = 'HORIZONTAL';
       row.itemSpacing = 8;
@@ -403,9 +405,9 @@ async function placeAnnotationsOnCanvas(
       row.paddingBottom = 8;
       row.counterAxisAlignItems = 'MIN';
       row.layoutAlign = 'STRETCH';
-      row.primaryAxisSizingMode = 'FIXED';
+      row.primaryAxisSizingMode = 'AUTO';
       row.counterAxisSizingMode = 'AUTO';
-      section.appendChild(row);
+      guide.appendChild(row);
 
       // Numbered badge (coloured circle with annotation number inside)
       const numBadge = figma.createFrame();
@@ -436,8 +438,7 @@ async function placeAnnotationsOnCanvas(
       textCol.itemSpacing = 3;
       textCol.layoutAlign = 'STRETCH';
       textCol.primaryAxisSizingMode = 'AUTO';
-      textCol.counterAxisSizingMode = 'FIXED';
-      textCol.resize(GUIDE_WIDTH - GUIDE_PADDING * 2 - 28, 20);
+      textCol.counterAxisSizingMode = 'AUTO';
       row.appendChild(textCol);
 
       const labelNode = figma.createText();

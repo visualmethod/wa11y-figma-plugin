@@ -412,22 +412,32 @@ async function placeAnnotationsOnCanvas(frame: FrameNode, annotations: Annotatio
     bx = Math.max(0, Math.min(frame.width  - BADGE_SIZE, bx));
     by = Math.max(0, Math.min(frame.height - BADGE_SIZE, by));
 
-    // Resolve collisions: if this badge overlaps an already-placed one,
-    // nudge it right (and wrap down if it hits the frame edge) until clear.
+    // Resolve collisions using a radial spiral: try 8 directions at
+    // increasing distance (up to 3 rings). This keeps each badge as close
+    // as possible to its target element instead of cascading to the bottom.
     const STEP = BADGE_SIZE + 2;
-    let attempts = 0;
-    while (attempts < 60) {
-      const clash = placedPositions.some(
-        (p) => Math.abs(p.bx - bx) < BADGE_SIZE && Math.abs(p.by - by) < BADGE_SIZE,
-      );
-      if (!clash) break;
-      bx += STEP;
-      if (bx + BADGE_SIZE > frame.width) {
-        bx = 0;
-        by += STEP;
-        if (by + BADGE_SIZE > frame.height) by = frame.height - BADGE_SIZE;
+    const isClear = (cx: number, cy: number) =>
+      !placedPositions.some((p) => Math.abs(p.bx - cx) < BADGE_SIZE && Math.abs(p.by - cy) < BADGE_SIZE);
+
+    if (!isClear(bx, by)) {
+      let resolved = false;
+      outer: for (let ring = 1; ring <= 4 && !resolved; ring++) {
+        const d = ring * STEP;
+        for (const [dx, dy] of [
+          [0, -d], [d, -d], [d, 0], [d, d],
+          [0,  d], [-d, d], [-d, 0], [-d, -d],
+        ]) {
+          const cx = Math.max(0, Math.min(frame.width  - BADGE_SIZE, bx + dx));
+          const cy = Math.max(0, Math.min(frame.height - BADGE_SIZE, by + dy));
+          if (isClear(cx, cy)) {
+            bx = cx; by = cy;
+            resolved = true;
+            break outer;
+          }
+        }
       }
-      attempts++;
+      // If no free slot within 4 rings, keep original position — badges overlap
+      // but remain near their element (better than cascading to a wrong location)
     }
     placedPositions.push({ bx, by });
 

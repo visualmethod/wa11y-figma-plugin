@@ -226,43 +226,55 @@ async function callGemini(
 ): Promise<AnnotationSet> {
   const prompt = buildPrompt(platform, categories, layerTree, frameName);
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/png',
-                data: imageBase64,
-              },
-            },
-            {
-              type: 'text',
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    }),
+  const requestBody = JSON.stringify({
+    model,
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: imageBase64 } },
+          { type: 'text', text: prompt },
+        ],
+      },
+    ],
   });
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+
+  // Retry up to 3 times for transient overload errors (529 / 503)
+  const MAX_RETRIES = 3;
+  let response!: Response;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: requestBody,
+    });
+
+    if ((response.status === 529 || response.status === 503) && attempt < MAX_RETRIES) {
+      const wait = attempt * 3000; // 3s, 6s
+      console.warn(`[wa11y] API overloaded (${response.status}), retrying in ${wait / 1000}s… (attempt ${attempt}/${MAX_RETRIES})`);
+      await new Promise((r) => setTimeout(r, wait));
+      continue;
+    }
+    break;
+  }
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     console.error('[wa11y] Claude HTTP error:', response.status, err);
-    throw new Error(err?.error?.message ?? `Claude API error ${response.status}`);
+    const base = err?.error?.message ?? `Claude API error ${response.status}`;
+    const suffix = response.status === 529 || response.status === 503
+      ? ' — the API is temporarily busy, please try again in a moment'
+      : '';
+    throw new Error(base + suffix);
   }
 
   const data = await response.json();
@@ -346,8 +358,9 @@ RULES — follow these exactly:
 1. Be EXHAUSTIVE. Annotate every element that qualifies. Never merge similar items into one — annotate each card's image, each button, each icon separately.
 2. Number annotations sequentially across all categories starting from 1.
 3. For EVERY item, look at the screenshot and set "x" and "y" to the element's approximate position as a fraction of the total frame dimensions (x: 0=left edge, 1=right edge; y: 0=top edge, 1=bottom edge). Target the top-left corner of the element. These values must be between 0 and 1.
-4. For "nodeId", use the exact "id" value of the best-matching node from the layer tree JSON. Omit only if truly no node corresponds.
-5. Descriptions must be concrete implementation values (e.g. alt="Mountain bike on grassy outdoor trail"), not vague instructions.
+4. When the design contains vertically stacked repeating sections (cards, list items, rows), pay close attention to y — elements in the 1st, 2nd, 3rd section MUST have clearly distinct y values that reflect their actual vertical position. Do not give two different cards the same y value.
+5. For "nodeId", use the exact "id" value of the best-matching node from the layer tree JSON. Omit only if truly no node corresponds.
+6. Descriptions must be concrete implementation values (e.g. alt="Mountain bike on grassy outdoor trail"), not vague instructions.
 
 Return ONLY valid JSON — no markdown fences, no explanation:
 {
